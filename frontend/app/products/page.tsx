@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import Navbar from '../../components/Navbar';
 import ProductCard from '../../components/ProductCard';
 import { API_URL } from '../../lib/api';
@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 const PRODUCTS_PER_PAGE = 12;
 
-export default function ProductsPage() {
+function ProductsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [products, setProducts] = useState<any[]>([]);
@@ -193,5 +193,13 @@ export default function ProductsPage() {
                 </div>
             </footer>
         </div>
+    );
+}
+
+export default function ProductsPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <ProductsContent />
+        </Suspense>
     );
 }
