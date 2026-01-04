@@ -1,22 +1,21 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Força IPv4 (Resolve ENETUNREACH no Render)
+// Força IPv4 no Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Ignora erro de certificado SSL do Supabase
+// Ignora erro de certificado SSL
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-// Log Forense para o Render (ajuda a achar erros de digitação na URL)
+// Log para conferirmos o host no Render
 if (process.env.DATABASE_URL) {
   try {
-    const rawUrl = process.env.DATABASE_URL.trim();
-    const url = new URL(rawUrl);
-    console.log(`[Knex Debug] Host: ${url.hostname}, Port: ${url.port}, User: ${url.username}`);
+    const url = new URL(process.env.DATABASE_URL.trim());
+    console.log(`[Knex] Destino: ${url.hostname}, Porta: ${url.port}, User: ${url.username}`);
   } catch (e) {
-    console.log('[Knex Debug] Erro ao ler a URL: ', e.message);
+    console.log('[Knex] Erro ao ler a URL');
   }
 }
 
@@ -32,8 +31,10 @@ module.exports = {
     client: 'pg',
     connection: {
       connectionString: (process.env.DATABASE_URL || '').trim(),
-      ssl: { rejectUnauthorized: false },
+      ssl: { rejectUnauthorized: false }
     },
+    // Desativa prepared statements (essencial para o Pooler na porta 6543)
+    searchPath: ['public'],
     pool: {
       min: 0,
       max: 4,
@@ -42,9 +43,6 @@ module.exports = {
     },
     migrations: {
       tableName: 'knex_migrations'
-    },
-    seeds: {
-      directory: './seeds'
     }
   }
 };
