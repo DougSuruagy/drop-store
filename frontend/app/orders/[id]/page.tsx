@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import Navbar from '../../../components/Navbar';
+import Header from '../../../components/Header';
 import { fetchAPI } from '../../../lib/api';
 import Link from 'next/link';
 
@@ -41,16 +41,16 @@ export default function OrderDetailsPage(props: { params: Promise<{ id: string }
     }, [params.id]);
 
     const statusMap: any = {
-        pending: { label: 'Pendente', class: 'bg-yellow-100 text-yellow-800' },
-        paid: { label: 'Pago', class: 'bg-green-100 text-green-800' },
-        shipped: { label: 'Enviado', class: 'bg-blue-100 text-blue-800' },
-        delivered: { label: 'Entregue', class: 'bg-purple-100 text-purple-800' },
-        canceled: { label: 'Cancelado', class: 'bg-red-100 text-red-800' },
+        pending: { label: 'Pendente', class: 'bg-yellow-50 text-yellow-700 border-yellow-100' },
+        paid: { label: 'Pago', class: 'bg-green-50 text-green-700 border-green-100' },
+        shipped: { label: 'Enviado', class: 'bg-blue-50 text-blue-700 border-blue-100' },
+        delivered: { label: 'Entregue', class: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+        canceled: { label: 'Cancelado', class: 'bg-red-50 text-red-700 border-red-100' },
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
         );
@@ -58,83 +58,90 @@ export default function OrderDetailsPage(props: { params: Promise<{ id: string }
 
     if (!details) {
         return (
-            <div className="min-h-screen bg-gray-50">
-                <Navbar />
-                <div className="pt-32 text-center">
-                    <h1 className="text-2xl font-bold">Pedido não encontrado</h1>
-                    <Link href="/orders" className="text-blue-600 underline mt-4 block">Voltar para Pedidos</Link>
+            <div className="min-h-screen bg-slate-50">
+                <Header />
+                <div className="pt-48 text-center px-4">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter italic">Pedido não encontrado</h1>
+                    <Link href="/orders" className="text-blue-600 font-bold mt-8 block hover:underline transition">Voltar para Pedidos</Link>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-            <Navbar />
-            <main className="pt-32 pb-20 max-w-4xl mx-auto px-4">
-                <div className="flex items-center gap-4 mb-8">
-                    <Link href="/orders" className="p-2 hover:bg-gray-200 rounded-full transition">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
-                    </Link>
-                    <h1 className="text-3xl font-bold tracking-tight">Detalhes do Pedido #{details.order.id}</h1>
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+            <Header />
+            <main className="pt-40 pb-20 max-w-5xl mx-auto px-4">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div className="flex items-center gap-6">
+                        <Link href="/orders" className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 hover:bg-slate-50 transition">
+                            <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                        </Link>
+                        <h1 className="text-5xl font-black tracking-tighter italic text-slate-900">Pedido <span className="text-blue-600">#{details.order.id}</span></h1>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-6">
-                        <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                            <h2 className="text-lg font-bold mb-4">Itens Comprados</h2>
-                            <div className="divide-y divide-gray-50">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    <div className="lg:col-span-8 space-y-10">
+                        <section className="bg-white p-10 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.03)] border border-slate-100">
+                            <h2 className="text-xl font-black mb-8 tracking-tight italic">Itens Processados</h2>
+                            <div className="divide-y divide-slate-50">
                                 {details.items.map((item, idx) => (
-                                    <div key={idx} className="py-4 flex gap-4 items-center">
-                                        <div className="w-16 h-16 bg-gray-50 rounded-lg overflow-hidden border border-gray-100 flex-shrink-0 relative">
+                                    <div key={idx} className="py-6 flex gap-6 items-center group">
+                                        <div className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0 relative">
                                             <img
                                                 src={item.imagens?.[0] || 'https://via.placeholder.com/100'}
                                                 alt={item.titulo}
-                                                className="object-cover w-full h-full"
+                                                className="object-cover w-full h-full opacity-80 group-hover:opacity-100 transition duration-500"
                                             />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="font-semibold text-gray-900 line-clamp-1">{item.titulo}</p>
-                                            <p className="text-sm text-gray-500">Qtd: {item.quantidade} x R$ {Number(item.preco_unitario).toFixed(2)}</p>
+                                            <p className="font-bold text-slate-900 text-lg italic line-clamp-1">{item.titulo}</p>
+                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">
+                                                Qtd: {item.quantidade} <span className="mx-2">×</span> R$ {Number(item.preco_unitario).toFixed(2)}
+                                            </p>
                                         </div>
-                                        <p className="font-bold text-gray-900">R$ {(item.quantidade * Number(item.preco_unitario)).toFixed(2)}</p>
+                                        <p className="font-black text-slate-900 text-lg italic">R$ {(item.quantidade * Number(item.preco_unitario)).toFixed(2)}</p>
                                     </div>
                                 ))}
                             </div>
                         </section>
                     </div>
 
-                    <aside className="space-y-6">
-                        <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                            <h2 className="text-lg font-bold mb-4">Status & Resumo</h2>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm text-gray-500">Status:</span>
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${statusMap[details.order.status]?.class || 'bg-gray-100'}`}>
+                    <aside className="lg:col-span-4 space-y-8">
+                        <section className="bg-white p-10 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.03)] border border-slate-100 text-center">
+                            <h2 className="text-xl font-black mb-10 tracking-tight italic">Status da Operação</h2>
+                            <div className="space-y-6">
+                                <div className="inline-block px-6 py-2 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <span className={`text-xs font-black uppercase tracking-widest ${statusMap[details.order.status]?.class || 'text-slate-500'}`}>
                                         {statusMap[details.order.status]?.label || details.order.status}
                                     </span>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm text-gray-500">Data:</span>
-                                    <span className="text-sm font-medium">{new Date(details.order.created_at).toLocaleDateString()}</span>
-                                </div>
-                                <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-lg font-bold">
-                                    <span>Total:</span>
-                                    <span className="text-blue-600">R$ {Number(details.order.total).toFixed(2)}</span>
+
+                                <div className="pt-8 border-t border-slate-50 space-y-4">
+                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        <span>Data do Registro</span>
+                                        <span className="text-slate-900">{new Date(details.order.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-2xl font-black italic pt-4">
+                                        <span className="text-slate-900">Total</span>
+                                        <span className="text-blue-600">R$ {Number(details.order.total).toFixed(2)}</span>
+                                    </div>
                                 </div>
                             </div>
                         </section>
 
-                        <div className="bg-blue-600 p-6 rounded-2xl text-white shadow-lg">
-                            <h3 className="font-bold mb-2 flex items-center gap-2">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Precisando de Ajuda?
+                        <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-blue-600/20 rounded-full blur-3xl group-hover:scale-110 transition duration-700"></div>
+                            <h3 className="font-black text-xl mb-6 flex items-center gap-3 relative z-10 italic">
+                                <span className="text-blue-400 text-2xl animate-pulse">⚡</span>
+                                Suporte IA
                             </h3>
-                            <p className="text-sm text-blue-100 mb-4 font-light">
-                                Se tiver qualquer dúvida sobre sua entrega, entre em contato pelo nosso WhatsApp de suporte.
+                            <p className="text-sm text-slate-400 mb-8 font-medium leading-relaxed relative z-10">
+                                Problemas com a entrega? Nossa IA de intermediação está pronta para resolver.
                             </p>
-                            <button className="w-full bg-white text-blue-600 py-3 rounded-xl font-bold text-sm hover:bg-blue-50 transition">
-                                Suporte WhatsApp
+                            <button className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-sm hover:bg-blue-700 transition relative z-10 shadow-lg shadow-blue-900/40 translate-y-0 active:translate-y-1 transition-all">
+                                ACIONAR GARANTIA
                             </button>
                         </div>
                     </aside>

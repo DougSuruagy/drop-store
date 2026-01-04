@@ -39,7 +39,9 @@ async function fetchProducts(searchParams: FetchParams) {
     }
 }
 
-export default function ProductsPage() {
+import { Suspense } from 'react';
+
+function ProductsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [products, setProducts] = useState<Product[]>([]);
@@ -149,5 +151,13 @@ export default function ProductsPage() {
                 </div>
             </footer>
         </div>
+    );
+}
+
+export default function ProductsPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-slate-50 pt-40 flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <ProductsContent />
+        </Suspense>
     );
 }

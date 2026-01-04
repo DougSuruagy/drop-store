@@ -2,8 +2,8 @@
 
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Header from '../../components/Header';
-import TrustBadge from '../../components/TrustBadge';
+import Header from '../../../components/Header';
+import TrustBadge from '../../../components/TrustBadge';
 import { Suspense } from 'react';
 
 function SuccessContent() {

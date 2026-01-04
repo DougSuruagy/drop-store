@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Navbar from '../../components/Navbar';
+import Header from '../../components/Header';
 import { fetchAPI } from '../../lib/api';
 import Link from 'next/link';
 
@@ -31,34 +31,34 @@ export default function OrdersPage() {
     }, []);
 
     const statusMap: any = {
-        pending: { label: 'Pendente', class: 'bg-yellow-100 text-yellow-800' },
-        paid: { label: 'Pago', class: 'bg-green-100 text-green-800' },
-        shipped: { label: 'Enviado', class: 'bg-blue-100 text-blue-800' },
-        delivered: { label: 'Entregue', class: 'bg-purple-100 text-purple-800' },
-        canceled: { label: 'Cancelado', class: 'bg-red-100 text-red-800' },
+        pending: { label: 'Pendente', class: 'bg-yellow-50 text-yellow-700 border-yellow-100' },
+        paid: { label: 'Pago', class: 'bg-green-50 text-green-700 border-green-100' },
+        shipped: { label: 'Enviado', class: 'bg-blue-50 text-blue-700 border-blue-100' },
+        delivered: { label: 'Entregue', class: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+        canceled: { label: 'Cancelado', class: 'bg-red-50 text-red-700 border-red-100' },
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-            <Navbar />
-            <main className="pt-32 pb-20 max-w-4xl mx-auto px-4">
-                <h1 className="text-4xl font-extrabold mb-10 tracking-tight">Meus Pedidos</h1>
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+            <Header />
+            <main className="pt-40 pb-20 max-w-4xl mx-auto px-4">
+                <h1 className="text-5xl font-black mb-12 tracking-tighter italic">Seu Histórico</h1>
 
                 {orders.length === 0 ? (
-                    <div className="bg-white p-12 rounded-3xl shadow-sm text-center border border-gray-100">
-                        <div className="text-5xl mb-4">📦</div>
-                        <h2 className="text-xl font-bold mb-2">Você ainda não tem pedidos</h2>
-                        <p className="text-gray-500 mb-8">Comece a comprar e seus pedidos aparecerão aqui.</p>
-                        <Link href="/" className="inline-block bg-black text-white px-8 py-3 rounded-full font-bold hover:bg-gray-800 transition shadow-lg">
-                            Explorar Produtos
+                    <div className="bg-white p-16 rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.05)] text-center border border-slate-100 px-6">
+                        <div className="text-7xl mb-8 animate-pulse">🛰️</div>
+                        <h2 className="text-3xl font-black mb-4 tracking-tighter italic text-slate-900">Nenhum Registro.</h2>
+                        <p className="text-slate-500 mb-10 font-medium italic">Nossa IA ainda não detectou pedidos vinculados a este usuário.</p>
+                        <Link href="/" className="inline-block bg-blue-600 text-white px-12 py-5 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 hover:bg-blue-700 hover:scale-105 transition-all">
+                            EXPLORAR SOLUÇÕES
                         </Link>
                     </div>
                 ) : (
