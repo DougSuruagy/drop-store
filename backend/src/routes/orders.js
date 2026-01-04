@@ -6,18 +6,81 @@ const { verifyToken } = require('../middleware/auth');
 
 router.use(verifyToken);
 
-// GET /orders - Listar todos os pedidos do usuário
+// GET /orders - Listar todos os pedidos do usuário (Com Paginação)
 router.get('/', async (req, res) => {
+    const { page = '1', limit = '10' } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
     try {
         // SEGURANÇA: Omitimos 'lucro_liquido' para não vazar margens da loja para o cliente
         const orders = await knex('orders')
             .select('id', 'total', 'status', 'tracking_code', 'tracking_carrier', 'created_at', 'updated_at')
             .where({ user_id: req.user.id })
-            .orderBy('created_at', 'desc');
-        res.json(orders);
+            .orderBy('created_at', 'desc')
+            .limit(parseInt(limit))
+            .offset(offset);
+
+        const totalCount = await knex('orders').where({ user_id: req.user.id }).count('id as count').first();
+
+        res.json({
+            orders,
+            pagination: {
+                total: parseInt(totalCount.count),
+                page: parseInt(page),
+                limit: parseInt(limit)
+            }
+        });
     } catch (err) {
         console.error('List orders error:', err);
         res.status(500).json({ error: 'Erro ao listar pedidos.' });
+    }
+});
+
+/**
+ * POST /orders/system/cleanup
+ * PERFORMANCE: Libera estoque de pedidos pendentes com mais de 24h.
+ * Isso evita "estoque fantasma" onde produtos ficam reservados sem pagamento.
+ */
+router.post('/system/cleanup', async (req, res) => {
+    try {
+        const threshold = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 horas atrás
+
+        const expiredOrders = await knex('orders')
+            .where('status', 'pending')
+            .andWhere('created_at', '<', threshold);
+
+        if (expiredOrders.length === 0) {
+            return res.json({ message: 'Nenhum pedido pendente para limpar.' });
+        }
+
+        let totalRestored = 0;
+
+        for (const order of expiredOrders) {
+            await knex.transaction(async (trx) => {
+                const items = await trx('order_items').where({ order_id: order.id });
+
+                for (const item of items) {
+                    await trx('products')
+                        .where({ id: item.product_id })
+                        .increment('estoque', item.quantidade);
+                    totalRestored++;
+                }
+
+                await trx('orders').where({ id: order.id }).update({
+                    status: 'canceled',
+                    updated_at: new Date()
+                });
+            });
+        }
+
+        res.json({
+            message: `Limpeza concluída. ${expiredOrders.length} pedidos cancelados, ${totalRestored} itens devolvidos ao estoque.`,
+            expired_count: expiredOrders.length
+        });
+
+    } catch (err) {
+        console.error('System cleanup error:', err);
+        res.status(500).json({ error: 'Erro ao processar limpeza de estoque.' });
     }
 });
 
@@ -25,7 +88,9 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     try {
+        // SEGURANÇA: Omitimos 'lucro_liquido' para não vazar margens da loja para o cliente
         const order = await knex('orders')
+            .select('id', 'total', 'status', 'tracking_code', 'tracking_carrier', 'created_at', 'updated_at')
             .where({ id, user_id: req.user.id })
             .first();
 

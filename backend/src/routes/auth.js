@@ -33,24 +33,32 @@ router.post('/register', async (req, res) => {
         const newUser = result[0];
         res.status(201).json(newUser);
     } catch (err) {
+        // Race condition: O e-mail pode ter sido inserido entre o check inicial e o insert final
+        if (err.code === '23505' || err.message.includes('unique constraint') || err.message.includes('UNIQUE constraint')) {
+            return res.status(400).json({ error: 'Este email já está cadastrado.' });
+        }
         console.error('Register error:', err);
         res.status(500).json({ error: 'Erro ao registrar usuário. Tente novamente.' });
     }
 });
 
-// Login and return JWT
+// Login and return JWT (Protegido contra Ghost Accounts)
 router.post('/login', async (req, res) => {
     const { email, senha } = req.body;
     if (!email || !senha) {
         return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
     }
     try {
-        // PERFORMANCE: Busca apenas os campos necessários para validação e token
         const user = await knex('users')
             .select('id', 'nome', 'email', 'senha_hash')
             .where({ email })
             .first();
-        if (!user) return res.status(401).json({ error: 'Credenciais inválidas.' });
+
+        // SEGURANÇA: Se a conta for GUEST (criada no checkout rápido), ela não tem senha real.
+        // Impedimos o login direto nela. O usuário deve usar "Recuperar Senha" para definir uma.
+        if (!user || user.senha_hash === 'GUEST_ACCOUNT') {
+            return res.status(401).json({ error: 'Credenciais inválidas ou e-mail vinculado a conta de convidado.' });
+        }
 
         const match = await bcrypt.compare(senha, user.senha_hash);
         if (!match) return res.status(401).json({ error: 'Credenciais inválidas.' });
