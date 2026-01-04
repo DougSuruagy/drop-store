@@ -8,8 +8,9 @@ import { API_URL } from '../../../lib/api';
 
 async function getProduct(id: string) {
     try {
-        const res = await fetch(`${API_URL} /products/${id} `, {
-            next: { revalidate: 3600 } // PERFORMANCE: Cache de 1 hora para dados estáticos de produto
+        // BUG FIX: Removidos espaços extras na URL que causavam erros de rede em alguns ambientes
+        const res = await fetch(`${API_URL}/products/${id}`, {
+            next: { revalidate: 60 } // PERFORMANCE: Cache reduzido para 60s para refletir mudanças de estoque rapidamente
         });
         if (!res.ok) return null;
         return res.json();
@@ -21,8 +22,22 @@ async function getProduct(id: string) {
 export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
     const params = await props.params;
     const product = await getProduct(params.id);
+
     if (!product) return { title: 'Produto não encontrado' };
-    return { title: `${product.titulo} | Aurum Tech` };
+
+    // SEO & SOCIAL: Adicionada imagem e descrição para compartilhamento (OpenGraph)
+    const description = product.descricao ? product.descricao.substring(0, 160) + '...' : 'Confira esta oferta na Aurum Tech.';
+    const imageUrl = (product.imagens && product.imagens.length > 0) ? product.imagens[0] : '';
+
+    return {
+        title: `${product.titulo} | Aurum Tech`,
+        description,
+        openGraph: {
+            title: product.titulo,
+            description,
+            images: imageUrl ? [{ url: imageUrl }] : [],
+        }
+    };
 }
 
 export default async function ProductPage(props: { params: Promise<{ id: string }> }) {
