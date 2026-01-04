@@ -3,12 +3,16 @@
 import AddToCartButton from './AddToCartButton';
 
 interface PriceBoxProps {
-    price: number;
-    productId: number;
+    product: {
+        id: number;
+        titulo: string;
+        preco: number;
+        imagens: string[];
+    };
 }
 
-export default function PriceBox({ price, productId }: PriceBoxProps) {
-    const discountedPrice = Number(price);
+export default function PriceBox({ product }: PriceBoxProps) {
+    const discountedPrice = Number(product.preco);
     const originalPrice = discountedPrice * 1.45;
 
     return (
@@ -32,7 +36,7 @@ export default function PriceBox({ price, productId }: PriceBoxProps) {
                 </div>
 
                 <div className="space-y-4">
-                    <AddToCartButton productId={productId} />
+                    <AddToCartButton product={product} />
                     <p className="text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] pt-2">
                         ⚡ APROVAÇÃO INSTANTÂNEA VIA PIX
                     </p>

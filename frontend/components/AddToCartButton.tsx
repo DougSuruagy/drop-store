@@ -3,24 +3,29 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function AddToCartButton({ productId }: { productId: number }) {
+export default function AddToCartButton({
+    product
+}: {
+    product: { id: number; titulo: string; preco: number; imagens: string[] }
+}) {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
     const buyNow = () => {
         setLoading(true);
 
-        // Em um modelo "Essential", quanto menos etapas melhor.
-        // Adicionamos ao localStorage para que o checkout leia, independente de estar logado.
-        const cartItem = { product_id: productId, quantidade: 1 };
+        // PERFORMANCE CRÍTICA: Salvamos os dados completos no localStorage 
+        // para que o Checkout carregue INSTANTANEAMENTE sem esperar o backend.
+        const cartItem = {
+            product_id: product.id,
+            quantidade: 1,
+            titulo: product.titulo,
+            preco: product.preco,
+            imagens: product.imagens
+        };
 
-        // Simulamos uma adição rápida
         try {
-            // No futuro aqui podemos chamar o backend se estiver logado, 
-            // mas para GUEST vamos direto para o checkout com a intenção de compra.
             localStorage.setItem('direct_buy', JSON.stringify(cartItem));
-
-            // Redireciona imediatamente para o Checkout (Regra 4)
             router.push('/checkout');
         } catch (e) {
             console.error(e);

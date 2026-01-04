@@ -132,7 +132,7 @@ export default async function ProductPage(props: { params: Promise<{ id: string 
                         </section>
 
                         {/* PRICE & CTA (PriceBox) */}
-                        <PriceBox price={product.preco} productId={product.id} />
+                        <PriceBox product={product} />
 
                         {/* GARANTIA & SEGURANÇA */}
                         <div className="space-y-8">

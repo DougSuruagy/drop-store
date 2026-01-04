@@ -40,17 +40,18 @@ export default function CheckoutPage() {
                 const directBuyData = localStorage.getItem('direct_buy');
                 if (directBuyData) {
                     const item = JSON.parse(directBuyData);
-                    const prod = await fetchAPI(`/products/${item.product_id}`);
+                    // PERFORMANCE CRÍTICA: Carregamos os dados salvos localmente
+                    // Evita o fetchAPI(/products/id), carregando a página NA HORA.
                     const cartItem: CartItem = {
                         id: Date.now(),
-                        product_id: prod.id,
-                        titulo: prod.titulo,
-                        preco: prod.preco,
-                        imagens: prod.imagens,
+                        product_id: item.product_id,
+                        titulo: item.titulo,
+                        preco: item.preco,
+                        imagens: item.imagens,
                         quantidade: item.quantidade
                     };
                     setItems([cartItem]);
-                    setTotal(Number(prod.preco) * item.quantidade);
+                    setTotal(Number(item.preco) * item.quantidade);
                     setInitializing(false);
                     return;
                 }
