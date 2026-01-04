@@ -1,12 +1,12 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Força IPv4 para o Render
+// Vacina contra o erro de IPv6 do Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Ignora erro de certificado SSL
+// Ignora erro de certificado SSL globalmente
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 module.exports = {
@@ -20,18 +20,15 @@ module.exports = {
   production: {
     client: 'pg',
     connection: {
-      // PASSANDO DADOS EXPLICITOS PARA NÃO TER ERRO DE "TENANT"
-      host: 'aws-1-sa-east-1.pooler.supabase.com',
-      port: 6543,
-      user: 'postgres.wjnrvyxpklssvkscnqg',
-      password: 'Queuedoug1',
-      database: 'postgres',
+      connectionString: (process.env.DATABASE_URL || '').trim(),
       ssl: { rejectUnauthorized: false },
     },
+    // Configurações específicas para evitar o erro de Tenant no Supavisor
     pool: {
       min: 0,
-      max: 4,
+      max: 2, // Manter o pool baixo no plano free
       acquireTimeoutMillis: 60000,
+      idleTimeoutMillis: 30000
     },
     migrations: {
       tableName: 'knex_migrations'
