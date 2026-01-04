@@ -1,5 +1,4 @@
-// Configuração da API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://drop-api-p4u3.onrender.com/api';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://drop-api-p4u3.onrender.com/api';
 
 
 

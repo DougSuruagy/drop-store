@@ -1,13 +1,12 @@
 import Navbar from '../components/Navbar';
 import ProductCard from '../components/ProductCard';
+import { API_URL } from '../lib/api';
 
 // Fetch data on the server
 async function getProducts() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
   try {
-    const res = await fetch(`${apiUrl}/products`, {
+    const res = await fetch(`${API_URL}/products`, {
       next: { revalidate: 60 }, // Revalidate every 60 seconds
-      // Removed for production performance
     });
 
     if (!res.ok) {

@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Navbar from '../../../components/Navbar';
 import AddToCartButton from '../../../components/AddToCartButton';
+import { API_URL } from '../../../lib/api';
 
 async function getProduct(id: string) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
     try {
-        const res = await fetch(`${apiUrl}/products/${id}`, { cache: 'no-store' });
+        const res = await fetch(`${API_URL}/products/${id}`, { cache: 'no-store' });
         if (!res.ok) return null;
         return res.json();
     } catch {
