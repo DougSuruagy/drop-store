@@ -1,64 +1,190 @@
-// src/services/LeanAI.js
 /**
- * AURUM TECH – LEAN IA (Versão 1.0)
- * IA baseada em regras para validação de produtos e intermediação.
+ * AURUM TECH - LeanAI
+ * Sistema de Inteligência Artificial baseado em regras para curadoria de produtos.
+ * 
+ * PRINCÍPIOS:
+ * - Nenhuma venda sem lucro
+ * - Produtos entre R$97 e R$497
+ * - Margem mínima de 40%
+ * - Categorias validadas para dropshipping
  */
 
-class LeanAI {
-    constructor() {
-        this.MIN_PRICE = 97.00;
-        this.MAX_PRICE = 497.00;
-        this.MIN_MARGIN_PERCENT = 0.30; // 30% de margem mínima
-        this.ESTIMATED_TAXES = 0.15;    // Taxas de checkout/intermediação
+const REGRAS = {
+    // Faixa de preço permitida
+    PRECO_MINIMO: 97,
+    PRECO_MAXIMO: 497,
+
+    // Margem mínima sobre o custo (40% = 1.4x o custo)
+    MARGEM_MINIMA: 0.40,
+
+    // Taxa do Mercado Pago (estimativa conservadora)
+    TAXA_MP: 0.05,
+
+    // Categorias aprovadas para dropshipping (baixo risco de devolução)
+    CATEGORIAS_APROVADAS: [
+        'Gadgets',
+        'Organização',
+        'Smart Home',
+        'Tech Automotivo',
+        'Produtividade',
+        'Acessórios',
+        'Casa Inteligente',
+        'Ferramentas',
+        'Iluminação',
+        'Carregadores'
+    ],
+
+    // Palavras-chave que indicam alto risco (evitar)
+    BLACKLIST: [
+        'frágil',
+        'vidro',
+        'bateria grande',
+        'líquido',
+        'químico',
+        'medicamento',
+        'suplemento',
+        'comestível',
+        'perecível'
+    ]
+};
+
+/**
+ * Valida se um produto atende aos critérios da Aurum Tech
+ * @param {Object} produto - Objeto com dados do produto
+ * @returns {Object} { approved: boolean, reason: string, score: number }
+ */
+function validateProduct(produto) {
+    const resultado = {
+        approved: true,
+        reasons: [],
+        score: 100,
+        margem_estimada: 0,
+        lucro_estimado: 0
+    };
+
+    const preco = Number(produto.preco) || 0;
+    const custo = Number(produto.preco_custo) || 0;
+    const categoria = produto.categoria || '';
+    const descricao = (produto.descricao || '').toLowerCase();
+    const titulo = (produto.titulo || '').toLowerCase();
+
+    // REGRA 1: Faixa de preço
+    if (preco < REGRAS.PRECO_MINIMO) {
+        resultado.approved = false;
+        resultado.reasons.push(`Preço R$ ${preco.toFixed(2)} abaixo do mínimo (R$ ${REGRAS.PRECO_MINIMO})`);
+        resultado.score -= 50;
+    }
+    if (preco > REGRAS.PRECO_MAXIMO) {
+        resultado.approved = false;
+        resultado.reasons.push(`Preço R$ ${preco.toFixed(2)} acima do máximo (R$ ${REGRAS.PRECO_MAXIMO})`);
+        resultado.score -= 30;
     }
 
-    /**
-     * Valida se um produto atende aos critérios obrigatórios do plano.
-     */
-    validateProduct(product) {
-        const { titulo, preco, categoria } = product;
+    // REGRA 2: Margem mínima (Anti-Prejuízo)
+    if (custo > 0) {
+        const taxaMP = preco * REGRAS.TAXA_MP;
+        const lucroLiquido = preco - custo - taxaMP;
+        const margemReal = lucroLiquido / preco;
 
-        // 1. Verificação de Preço
-        if (preco < this.MIN_PRICE || preco > this.MAX_PRICE) {
-            return { approved: false, reason: `Preço R$ ${preco} fora da faixa permitida (R$ 97 - R$ 497).` };
+        resultado.margem_estimada = (margemReal * 100).toFixed(1) + '%';
+        resultado.lucro_estimado = lucroLiquido.toFixed(2);
+
+        if (margemReal < REGRAS.MARGEM_MINIMA) {
+            resultado.approved = false;
+            resultado.reasons.push(`Margem ${resultado.margem_estimada} abaixo do mínimo (${REGRAS.MARGEM_MINIMA * 100}%)`);
+            resultado.score -= 40;
         }
+    } else {
+        resultado.reasons.push('Custo não informado - margem não calculada');
+        resultado.score -= 10;
+    }
 
-        // 2. Verificação de Nicho (Baseada no plano Aurum Tech)
-        const allowedCategories = ['Smart Home', 'Gadgets', 'Produtividade', 'Tech Automotivo', 'Decoração Tech'];
-        if (!allowedCategories.includes(categoria)) {
-            return { approved: false, reason: `Categoria ${categoria} não permitida.` };
-        }
+    // REGRA 3: Categoria aprovada
+    const categoriaAprovada = REGRAS.CATEGORIAS_APROVADAS.some(cat =>
+        categoria.toLowerCase().includes(cat.toLowerCase())
+    );
+    if (!categoriaAprovada && categoria) {
+        resultado.score -= 20;
+        resultado.reasons.push(`Categoria "${categoria}" não está na lista prioritária`);
+    }
 
-        // 3. Estimativa de Margem
-        // Simulação: Fornecedor geralmente cobra 50-60% do preço final em intermediação simples.
-        const estimatedSupplierCost = preco * 0.55;
-        const profit = preco - estimatedSupplierCost - (preco * this.ESTIMATED_TAXES);
-        const margin = profit / preco;
+    // REGRA 4: Blacklist (produtos de risco)
+    const textoCompleto = `${titulo} ${descricao}`;
+    const termoBloqueado = REGRAS.BLACKLIST.find(termo => textoCompleto.includes(termo));
+    if (termoBloqueado) {
+        resultado.approved = false;
+        resultado.reasons.push(`Produto contém termo de risco: "${termoBloqueado}"`);
+        resultado.score -= 50;
+    }
 
-        if (margin < this.MIN_MARGIN_PERCENT) {
-            return { approved: false, reason: `Margem estimada (${(margin * 100).toFixed(1)}%) abaixo do mínimo de 30%.` };
-        }
+    // REGRA 5: Descrição mínima (SEO)
+    if (descricao.length < 50) {
+        resultado.score -= 15;
+        resultado.reasons.push('Descrição muito curta para SEO');
+    }
 
+    // Score final
+    resultado.score = Math.max(0, resultado.score);
+
+    // Resumo
+    if (resultado.reasons.length === 0) {
+        resultado.reasons.push('Produto aprovado - atende todos os critérios Aurum Tech');
+    }
+
+    return {
+        approved: resultado.approved,
+        reason: resultado.reasons.join('; '),
+        score: resultado.score,
+        margem: resultado.margem_estimada,
+        lucro: resultado.lucro_estimado
+    };
+}
+
+/**
+ * Calcula o preço mínimo de venda para garantir margem
+ * @param {number} custo - Custo do produto
+ * @returns {number} Preço mínimo sugerido
+ */
+function calcularPrecoMinimo(custo) {
+    // Preço = Custo / (1 - Margem - TaxaMP)
+    const divisor = 1 - REGRAS.MARGEM_MINIMA - REGRAS.TAXA_MP;
+    const precoMinimo = custo / divisor;
+
+    // Arredonda para .90 (psicologia de preço)
+    return Math.ceil(precoMinimo / 10) * 10 - 0.10;
+}
+
+/**
+ * Verifica se uma venda pode ser processada (Anti-Prejuízo no checkout)
+ * @param {number} precoVenda - Preço de venda
+ * @param {number} custoProduto - Custo do produto
+ * @returns {Object} { allowed: boolean, message: string }
+ */
+function validarVenda(precoVenda, custoProduto) {
+    const taxaMP = precoVenda * REGRAS.TAXA_MP;
+    const lucro = precoVenda - custoProduto - taxaMP;
+    const margem = lucro / precoVenda;
+
+    if (margem < REGRAS.MARGEM_MINIMA) {
         return {
-            approved: true,
-            analysis: {
-                profit: profit.toFixed(2),
-                margin: (margin * 100).toFixed(1) + '%',
-                score: 85 // IA Score simulado
-            }
+            allowed: false,
+            message: `Venda bloqueada: margem de ${(margem * 100).toFixed(1)}% é inferior ao mínimo de ${REGRAS.MARGEM_MINIMA * 100}%`,
+            lucro: lucro.toFixed(2),
+            margem: (margem * 100).toFixed(1) + '%'
         };
     }
 
-    /**
-     * Simula a busca e curadoria automática de produtos (Workflow Futuro)
-     */
-    async discoverTrends() {
-        // Mock de busca em marketplaces
-        return [
-            { titulo: 'Aspirador Portátil UV', preco: 147.00, categoria: 'Gadgets' },
-            { titulo: 'Fone Sono Profundo Bluetooth', preco: 127.00, categoria: 'Produtividade' }
-        ];
-    }
+    return {
+        allowed: true,
+        message: 'Venda aprovada',
+        lucro: lucro.toFixed(2),
+        margem: (margem * 100).toFixed(1) + '%'
+    };
 }
 
-module.exports = new LeanAI();
+module.exports = {
+    validateProduct,
+    calcularPrecoMinimo,
+    validarVenda,
+    REGRAS
+};
