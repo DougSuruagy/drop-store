@@ -207,8 +207,9 @@ router.post('/', async (req, res) => {
                 },
                 auto_return: 'approved',
                 external_reference: orderData.order.id.toString(),
-                // OTIMIZAÇÃO PIX: binary_mode true força aprovação ou rejeição instantânea, ideal para Pix.
-                // statement_descriptor limita caracteres na fatura do cartão.
+                // EXPIRAÇÃO: Sincronizada com o cleanup do sistema (24h)
+                // Impede pagamento de pedidos já cancelados
+                date_of_expiration: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                 binary_mode: true,
                 statement_descriptor: "DROPSTORE",
                 payment_methods: {

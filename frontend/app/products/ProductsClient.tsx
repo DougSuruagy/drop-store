@@ -6,7 +6,7 @@ import ProductCard from '../../components/ProductCard';
 import { API_URL } from '../../lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-const PRODUCTS_PER_PAGE = 12;
+const PRODUCTS_PER_PAGE = 20;
 
 export default function ProductsClient() {
     const router = useRouter();

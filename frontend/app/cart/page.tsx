@@ -21,6 +21,9 @@ export default function CartPage() {
     const [total, setTotal] = useState(0);
 
     useEffect(() => {
+        // PERFORMANCE: Se o usuário entrou no carrinho, limpamos qualquer "Compra Direta" antiga
+        // para garantir que ele veja o carrinho real no checkout.
+        localStorage.removeItem('direct_buy');
         loadCart();
     }, []);
 
