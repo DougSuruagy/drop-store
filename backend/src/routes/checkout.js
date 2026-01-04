@@ -62,13 +62,18 @@ router.post('/', async (req, res) => {
         // PERFOMANCE CRÍTICA: Processamento de DB em transação
         const orderData = await knex.transaction(async (trx) => {
             let items = [];
+            let fromCart = false; // Flag para controlar limpeza do carrinho
+
             if (cart_items && cart_items.length > 0) {
-                // Sanitização básica se vier do body
+                // Sanitização básica se vier do body (Compra Direta)
                 items = cart_items;
+                fromCart = false;
             } else {
+                // Compra do Carrinho Salvo
                 const cart = await trx('carts').where({ user_id: userId }).first();
                 if (!cart) throw new Error('CARRINHO_VAZIO');
                 items = await trx('cart_items').where({ cart_id: cart.id });
+                fromCart = true;
             }
 
             if (items.length === 0) throw new Error('CARRINHO_VAZIO');
@@ -126,7 +131,7 @@ router.post('/', async (req, res) => {
                     preco: prod.preco
                 });
             }
-            // ... (rest same logic for order insertion)
+
             const mpFee = total * 0.05; // Taxa estimada MP
             const [order] = await trx('orders')
                 .insert({
@@ -144,10 +149,13 @@ router.post('/', async (req, res) => {
                 preco_unitario: i.preco
             })));
 
-            const cartToDelete = await trx('carts').where({ user_id: userId }).first();
-            if (cartToDelete) {
-                await trx('cart_items').where({ cart_id: cartToDelete.id }).del();
-                await trx('carts').where({ id: cartToDelete.id }).del();
+            // CORREÇÃO: Só deleta o carrinho se a origem da compra foi o carrinho
+            if (fromCart) {
+                const cartToDelete = await trx('carts').where({ user_id: userId }).first();
+                if (cartToDelete) {
+                    await trx('cart_items').where({ cart_id: cartToDelete.id }).del();
+                    await trx('carts').where({ id: cartToDelete.id }).del();
+                }
             }
 
             return { order, processedItems };
