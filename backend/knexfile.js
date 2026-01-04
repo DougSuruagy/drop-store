@@ -10,7 +10,24 @@ if (dns.setDefaultResultOrder) {
 // Desativa verificação estrita de SSL para o Supabase
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-const dbUrl = new URL(process.env.DATABASE_URL || '');
+// Função para extrair dados da URL com segurança
+const getDbConfig = () => {
+  if (!process.env.DATABASE_URL) return {};
+  try {
+    const dbUrl = new URL(process.env.DATABASE_URL);
+    return {
+      host: dbUrl.hostname,
+      port: dbUrl.port || 5432,
+      user: decodeURIComponent(dbUrl.username),
+      password: decodeURIComponent(dbUrl.password),
+      database: dbUrl.pathname.split('/')[1] || 'postgres',
+    };
+  } catch (e) {
+    return { connectionString: process.env.DATABASE_URL };
+  }
+};
+
+const config = getDbConfig();
 
 module.exports = {
   development: {
@@ -23,11 +40,7 @@ module.exports = {
   production: {
     client: 'pg',
     connection: {
-      host: dbUrl.hostname,
-      port: dbUrl.port || 5432,
-      user: dbUrl.username,
-      password: dbUrl.password,
-      database: dbUrl.pathname.split('/')[1] || 'postgres',
+      ...config,
       ssl: { rejectUnauthorized: false },
     },
     pool: {
