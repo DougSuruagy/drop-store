@@ -1,12 +1,12 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Força IPv4 para evitar erro ENETUNREACH no Render
+// Força IPv4 (Resolve ENETUNREACH)
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Desativa verificação estrita de SSL (Necessário para Supabase no Render)
+// Mata o erro de certificado globalmente
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 module.exports = {
@@ -19,6 +19,7 @@ module.exports = {
 
   production: {
     client: 'pg',
+    // Usamos a string direta para evitar erros de parsing de objeto
     connection: {
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false }
@@ -26,7 +27,7 @@ module.exports = {
     pool: {
       min: 0,
       max: 10,
-      acquireTimeoutMillis: 60000,
+      acquireTimeoutMillis: 30000,
     },
     migrations: {
       tableName: 'knex_migrations'
