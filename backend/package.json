@@ -8,7 +8,7 @@
     "dev": "nodemon src/index.js",
     "migrate": "node node_modules/knex/bin/cli.js migrate:latest",
     "seed": "node node_modules/knex/bin/cli.js seed:run",
-    "build": "npm install"
+    "build": "npm install && node test-db.js"
   },
   "keywords": [],
   "author": "",
