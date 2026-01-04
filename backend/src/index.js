@@ -46,4 +46,4 @@ if (require.main === module) {
         console.log(`🚀 Backend rodando na porta ${PORT}`);
     });
 }
-}
+
