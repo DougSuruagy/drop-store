@@ -189,8 +189,9 @@ router.post('/', checkoutLimiter, async (req, res) => {
             if (fromCart) {
                 const cartToDelete = await trx('carts').where({ user_id: userId }).first();
                 if (cartToDelete) {
+                    // PERFORMANCE: Deleta apenas os itens, mantendo o "container" do carrinho
+                    // Isso evita um INSERT desnecessário na próxima vez que o usuário adicionar algo.
                     await trx('cart_items').where({ cart_id: cartToDelete.id }).del();
-                    await trx('carts').where({ id: cartToDelete.id }).del();
                 }
             }
 

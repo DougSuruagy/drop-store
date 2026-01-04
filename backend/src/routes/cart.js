@@ -7,15 +7,14 @@ const { verifyToken } = require('../middleware/auth');
 // Aplica autenticação em todas as rotas de carrinho
 router.use(verifyToken);
 
-// GET /cart - listar itens (Performance: Join otimizado)
+// GET /cart - listar itens (Performance: Single Join Query)
 router.get('/', async (req, res) => {
     try {
-        const cart = await knex('carts').where({ user_id: req.user.id }).first();
-        if (!cart) return res.json({ items: [] });
-
+        // PERFORMANCE: Busca tudo em uma única query JOIN
         const items = await knex('cart_items')
-            .where({ cart_id: cart.id })
+            .join('carts', 'cart_items.cart_id', 'carts.id')
             .join('products', 'cart_items.product_id', 'products.id')
+            .where('carts.user_id', req.user.id)
             .select(
                 'cart_items.id',
                 'products.id as product_id',
@@ -24,7 +23,8 @@ router.get('/', async (req, res) => {
                 'products.imagens',
                 'cart_items.quantidade'
             );
-        res.json({ items });
+
+        res.json({ items: items || [] });
     } catch (err) {
         console.error('Cart list error:', err);
         res.status(500).json({ error: 'Erro ao listar carrinho.' });
