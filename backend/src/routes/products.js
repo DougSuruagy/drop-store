@@ -3,6 +3,11 @@ const express = require('express');
 const router = express.Router();
 const knex = require('../db');
 
+// PERFORMANCE: Cache em memória para os produtos mais vistos
+// Evita consultas repetitivas ao banco de dados em picos de tráfego.
+const productCache = new Map();
+const CACHE_TTL = 60 * 1000; // 1 minuto
+
 // GET /products - list with optional filters/AI Curation
 router.get('/', async (req, res) => {
     const { categoria, minPrice, maxPrice, q, page = '1', limit = '20' } = req.query;
@@ -75,14 +80,37 @@ router.get('/:id', async (req, res) => {
         return res.status(400).json({ error: 'ID de produto inválido.' });
     }
 
+    // Tenta carregar do cache
+    const cached = productCache.get(id);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        return res.json(cached.data);
+    }
+
     try {
         // SEGURANÇA: Não selecionamos 'preco_custo' ou 'fornecedor_id' para o cliente
         const product = await knex('products')
-            .select('id', 'titulo', 'preco', 'imagens', 'categoria', 'estoque', 'descricao', 'beneficios', 'prova_social')
+            .select(
+                'id',
+                'titulo',
+                'preco',
+                'imagens',
+                'categoria',
+                'estoque',
+                'descricao',
+                'beneficios',
+                'prova_social'
+            )
             .where({ id })
             .first();
 
         if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });
+
+        // Salva no cache
+        productCache.set(id, {
+            data: product,
+            timestamp: Date.now()
+        });
+
         res.json(product);
     } catch (err) {
         console.error('Product detail error:', err);
