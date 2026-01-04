@@ -1,7 +1,7 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Vacina contra o erro de IPv6 do Render
+// Força IPv4 para o Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
@@ -20,10 +20,13 @@ module.exports = {
   production: {
     client: 'pg',
     connection: {
-      connectionString: (process.env.DATABASE_URL || '').trim(),
+      // PASSANDO DADOS EXPLICITOS PARA NÃO TER ERRO DE "TENANT"
+      host: 'aws-1-sa-east-1.pooler.supabase.com',
+      port: 6543,
+      user: 'postgres.wjnrvyxpklssvkscnqg',
+      password: 'Queuedoug1',
+      database: 'postgres',
       ssl: { rejectUnauthorized: false },
-      // O Supavisor (pooler do Supabase) às vezes exige o ID do projeto nos parâmetros
-      application_name: 'wjnrvyxpklssvkscnqg'
     },
     pool: {
       min: 0,
