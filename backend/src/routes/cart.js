@@ -54,10 +54,27 @@ router.post('/', async (req, res) => {
                 .first();
 
             if (existing) {
+                // Validação de Estoque (Lógica Crítica UX)
+                const product = await trx('products').select('estoque').where({ id: product_id }).first();
+                if (!product) throw new Error('Produto não encontrado.');
+
+                const novaQuantidade = existing.quantidade + parseInt(quantidade);
+                if (product.estoque < novaQuantidade) {
+                    throw new Error(`Estoque insuficiente. Disponível: ${product.estoque}`);
+                }
+
                 await trx('cart_items')
                     .where({ id: existing.id })
-                    .update({ quantidade: existing.quantidade + parseInt(quantidade) });
+                    .update({ quantidade: novaQuantidade });
             } else {
+                // Validação de Estoque para novos itens
+                const product = await trx('products').select('estoque').where({ id: product_id }).first();
+                if (!product) throw new Error('Produto não encontrado.');
+
+                if (product.estoque < parseInt(quantidade)) {
+                    throw new Error(`Estoque insuficiente. Disponível: ${product.estoque}`);
+                }
+
                 await trx('cart_items').insert({
                     cart_id: cart.id,
                     product_id,
@@ -69,6 +86,9 @@ router.post('/', async (req, res) => {
         res.status(201).json({ message: 'Carrinho atualizado com sucesso.' });
     } catch (err) {
         console.error('Cart add error:', err);
+        if (err.message.includes('Estoque insuficiente')) {
+            return res.status(400).json({ error: err.message });
+        }
         res.status(500).json({ error: 'Erro ao atualizar carrinho.' });
     }
 });
@@ -90,6 +110,49 @@ router.delete('/:itemId', async (req, res) => {
     } catch (err) {
         console.error('Cart delete error:', err);
         res.status(500).json({ error: 'Erro ao remover item.' });
+    }
+});
+
+// PUT /cart/:itemId - Atualizar quantidade (Lógica de Definir Valor Exato)
+router.put('/:itemId', async (req, res) => {
+    const { itemId } = req.params;
+    const { quantidade } = req.body;
+
+    if (!quantidade || quantidade < 1) {
+        return res.status(400).json({ error: 'Quantidade deve ser pelo menos 1.' });
+    }
+
+    try {
+        await knex.transaction(async (trx) => {
+            const cart = await trx('carts').where({ user_id: req.user.id }).first();
+            if (!cart) throw new Error('CARRINHO_NAO_ENCONTRADO');
+
+            const item = await trx('cart_items')
+                .where({ id: itemId, cart_id: cart.id })
+                .first();
+
+            if (!item) throw new Error('ITEM_NAO_ENCONTRADO');
+
+            // Validação de Estoque
+            const product = await trx('products')
+                .select('estoque', 'titulo')
+                .where({ id: item.product_id })
+                .first();
+
+            if (product.estoque < parseInt(quantidade)) {
+                throw new Error(`Estoque insuficiente de ${product.titulo}. Disponível: ${product.estoque}`);
+            }
+
+            await trx('cart_items')
+                .where({ id: itemId })
+                .update({ quantidade: parseInt(quantidade) });
+        });
+
+        res.json({ message: 'Quantidade atualizada.' });
+    } catch (err) {
+        console.error('Cart update error:', err);
+        const code = err.message.includes('Estoque') ? 400 : 500;
+        res.status(code).json({ error: err.message });
     }
 });
 

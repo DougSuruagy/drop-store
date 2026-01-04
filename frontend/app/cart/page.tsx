@@ -44,6 +44,20 @@ export default function CartPage() {
         }
     };
 
+    const updateQuantity = async (itemId: number, newQty: number) => {
+        if (newQty < 1) return;
+        try {
+            await fetchAPI(`/cart/${itemId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ quantidade: newQty })
+            });
+            loadCart();
+        } catch (error: any) {
+            console.error('Failed to update quantity', error);
+            alert(error.message || 'Erro ao atualizar quantidade');
+        }
+    };
+
     const removeItem = async (itemId: number) => {
         if (!confirm('Remover este item?')) return;
         try {
@@ -100,9 +114,24 @@ export default function CartPage() {
                                         <Link href={`/product/${item.product_id}`} className="text-xl font-black text-slate-900 hover:text-blue-600 transition italic line-clamp-1">
                                             {item.titulo}
                                         </Link>
-                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-2 px-3 py-1 bg-slate-50 inline-block rounded-lg border border-slate-100">
-                                            Qtd: {item.quantidade}
-                                        </p>
+
+                                        <div className="flex items-center gap-4 mt-4">
+                                            <div className="flex items-center bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+                                                <button
+                                                    onClick={() => updateQuantity(item.id, item.quantidade - 1)}
+                                                    className="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:bg-slate-200 hover:text-slate-900 transition"
+                                                >
+                                                    -
+                                                </button>
+                                                <span className="w-10 text-center text-xs font-black text-slate-900">{item.quantidade}</span>
+                                                <button
+                                                    onClick={() => updateQuantity(item.id, item.quantidade + 1)}
+                                                    className="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:bg-slate-200 hover:text-slate-900 transition"
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="text-right">
                                         <p className="font-black text-2xl italic text-slate-900">R$ {(Number(item.preco) * item.quantidade).toFixed(2)}</p>
