@@ -101,10 +101,12 @@ router.get('/:id', async (req, res) => {
             .join('products', 'order_items.product_id', 'products.id')
             .select(
                 'products.id as product_id',
-                'products.titulo',
                 'products.imagens',
                 'order_items.quantidade',
-                'order_items.preco_unitario'
+                'order_items.preco_unitario',
+                // SEGURANÇA LÓGICA: Prioriza o snapshot para não mudar o histórico
+                knex.raw('COALESCE(order_items.titulo_snapshot, products.titulo) as titulo'),
+                knex.raw('COALESCE(order_items.preco_snapshot, order_items.preco_unitario) as preco')
             );
 
         res.json({ order, items });

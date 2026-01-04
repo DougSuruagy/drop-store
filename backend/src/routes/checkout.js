@@ -173,7 +173,9 @@ router.post('/', async (req, res) => {
                 order_id: order.id,
                 product_id: i.product_id,
                 quantidade: i.quantidade,
-                preco_unitario: i.preco
+                preco_unitario: i.preco,
+                titulo_snapshot: i.titulo, // SEGURANÇA LÓGICA: Snapshot para não mudar com o catálogo
+                preco_snapshot: i.preco
             })));
 
             // CORREÇÃO: Só deleta o carrinho se a origem da compra foi o carrinho
@@ -189,37 +191,54 @@ router.post('/', async (req, res) => {
         });
 
         // CHAMADA EXTERNA (Mercado Pago)
-        const preference = new Preference(client);
-        const mpItems = orderData.processedItems.map(i => ({
-            title: i.titulo,
-            unit_price: Number(i.preco),
-            quantity: i.quantidade,
-            currency_id: 'BRL'
-        }));
+        // LÓGICA DE COMPENSAÇÃO (Critical Reliability):
+        // Se a API do MP falhar, precisamos devolver o estoque e marcar como falha.
+        let mpResponse;
+        try {
+            const preference = new Preference(client);
+            const mpItems = orderData.processedItems.map(i => ({
+                title: i.titulo,
+                unit_price: Number(i.preco),
+                quantity: i.quantidade,
+                currency_id: 'BRL'
+            }));
 
-        const mpResponse = await preference.create({
-            body: {
-                items: mpItems,
-                back_urls: {
-                    success: `${process.env.FRONTEND_URL}/checkout/success?order_id=${orderData.order.id}`,
-                    failure: `${process.env.FRONTEND_URL}/checkout/error`,
-                    pending: `${process.env.FRONTEND_URL}/checkout/pending`,
-                },
-                auto_return: 'approved',
-                external_reference: orderData.order.id.toString(),
-                // EXPIRAÇÃO: Sincronizada com o cleanup do sistema (24h)
-                // Impede pagamento de pedidos já cancelados
-                date_of_expiration: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                binary_mode: true,
-                statement_descriptor: "DROPSTORE",
-                payment_methods: {
-                    excluded_payment_types: [
-                        { id: "ticket" } // Opcional: Remover boleto para forçar Pix/Crédito (mais rápido) se desejar
-                    ],
-                    installments: 12 // Permite até 12x
+            mpResponse = await preference.create({
+                body: {
+                    items: mpItems,
+                    back_urls: {
+                        success: `${process.env.FRONTEND_URL}/checkout/success?order_id=${orderData.order.id}`,
+                        failure: `${process.env.FRONTEND_URL}/checkout/error`,
+                        pending: `${process.env.FRONTEND_URL}/checkout/pending`,
+                    },
+                    auto_return: 'approved',
+                    external_reference: orderData.order.id.toString(),
+                    date_of_expiration: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                    binary_mode: true,
+                    statement_descriptor: "DROPSTORE",
+                    payment_methods: {
+                        excluded_payment_types: [{ id: "ticket" }],
+                        installments: 12
+                    }
                 }
-            }
-        });
+            });
+        } catch (mpError) {
+            console.error(`❌ [Checkout] Falha na API Mercado Pago para Pedido #${orderData.order.id}:`, mpError);
+
+            // Reverte o estoque imediatamente para não travar o produto
+            await knex.transaction(async (trx) => {
+                for (const item of orderData.processedItems) {
+                    await trx('products')
+                        .where({ id: item.product_id })
+                        .increment('estoque', item.quantidade);
+                }
+                await trx('orders')
+                    .where({ id: orderData.order.id })
+                    .update({ status: 'failed_checkout', updated_at: new Date() });
+            });
+
+            throw new Error('MERCADO_PAGO_UNAVAILABLE');
+        }
 
         res.status(201).json({
             order_id: orderData.order.id,
@@ -231,6 +250,7 @@ router.post('/', async (req, res) => {
         console.error('Checkout error:', err);
         if (err.message === 'CARRINHO_VAZIO') return res.status(400).json({ error: 'Seu carrinho está vazio.' });
         if (err.message === 'PRECO_ALTERADO') return res.status(400).json({ error: 'O preço de alguns itens foi alterado. Por favor, atualize a página e tente novamente.' });
+        if (err.message === 'MERCADO_PAGO_UNAVAILABLE') return res.status(503).json({ error: 'Gateway de pagamento temporariamente indisponível. Seu estoque foi liberado. Tente novamente em instantes.' });
         if (err.message.startsWith('MARGEM_INSUFICIENTE')) return res.status(400).json({ error: 'IA detectou margem insuficiente para esta operação.' });
         if (err.message.startsWith('ESTOQUE_INSUFICIENTE')) return res.status(400).json({ error: 'Um ou mais itens esgotaram enquanto você comprava. Verifique o estoque.' });
 
