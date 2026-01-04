@@ -26,11 +26,15 @@ module.exports = {
   // Produção – idem ao development
   production: {
     client: 'pg',
-    connection: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // Essential for Supabase
+    connection: {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    },
     pool: {
-      min: 2,
-      max: 10
+      min: 0,
+      max: 10,
+      acquireTimeoutMillis: 30000,
+      idleTimeoutMillis: 30000
     },
     migrations: {
       tableName: 'knex_migrations'
