@@ -178,8 +178,8 @@ export default function ProductsClient() {
                     </>
                 ) : (
                     <div className="text-center py-32 bg-white rounded-3xl border border-dashed border-gray-300 shadow-sm">
-                        <div className="text-6xl mb-4">🔍</div>
-                        <h3 className="text-2xl font-bold text-gray-900">Nenhum produto encontrado</h3>
+                        <div className="text-6xl mb-4">✅</div>
+                        <h3 className="text-2xl font-bold text-gray-900">Catálogo Sincronizado (Nenhum Item)</h3>
                         <p className="text-gray-500 mt-2">Não encontramos nada para "{searchQuery || searchParams.get('categoria')}".</p>
                         <button
                             onClick={() => {

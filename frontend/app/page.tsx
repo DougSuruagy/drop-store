@@ -40,7 +40,7 @@ export default async function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-8 border border-blue-100/50">
               <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
-              Plataforma Aurum Tech
+              Plataforma Aurum Tech v2.0 (Live)
             </div>
 
             <h1 className="text-6xl md:text-9xl font-black tracking-tighter mb-8 leading-[0.85] text-slate-900">
