@@ -144,12 +144,12 @@ router.post('/', checkoutLimiter, async (req, res) => {
                     quantidade: item.quantidade,
                     titulo: prod.titulo,
                     preco: prod.preco,
+                    custo: prod.preco_custo,
                     fornecedor_id: prod.fornecedor_id
                 });
             }
 
             // SEGURANÇA LÓGICA: Validação do Preço Final
-            // Se o preço no banco mudou enquanto o usuário estava na página (ou houve tentativa de fraude), bloqueamos.
             if (total_visualizado && Math.abs(Number(total_visualizado) - total) > 0.05) {
                 throw new Error('PRECO_ALTERADO');
             }
@@ -162,13 +162,13 @@ router.post('/', checkoutLimiter, async (req, res) => {
                     lucro_liquido: (total - totalCost - mpFee).toFixed(2),
                     status: 'pending',
                     endereco_entrega: address,
-                    nome_cliente: guest_info?.nome || '', // Pega do guest ou seria bom ter do user
-                    email_cliente: userEmail
+                    nome_cliente: guest_info?.nome || '',
+                    email_cliente: userEmail,
+                    updated_at: new Date()
                 })
                 .returning('*');
 
-            // ATUALIZAÇÃO DE ENDEREÇO DO USUÁRIO (Praticidade UX)
-            // Se for um usuário logado e o endereço for diferente, atualizamos o perfil
+            // ATUALIZAÇÃO DE ENDEREÇO DO USUÁRIO
             if (userId && address) {
                 await trx('users')
                     .where({ id: userId })
@@ -182,6 +182,7 @@ router.post('/', checkoutLimiter, async (req, res) => {
                 preco_unitario: i.preco,
                 titulo_snapshot: i.titulo, // SEGURANÇA LÓGICA: Snapshot para não mudar com o catálogo
                 preco_snapshot: i.preco,
+                custo_snapshot: i.custo, // NOVO: Integridade financeira total
                 fornecedor_id_snapshot: i.fornecedor_id
             })));
 

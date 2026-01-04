@@ -33,10 +33,10 @@ async function activeInventoryManagement() {
             const margem = lucro / Number(product.preco);
 
             if (margem < REGRAS.MARGEM_MINIMA) {
-                console.warn(`🛑 [AutonomousManager] Margem de risco para "${product.titulo}": ${(margem * 100).toFixed(1)}%`);
-                // Aqui poderíamos automatizar o ajuste de preço:
-                // const novoPreco = preco * 1.1; 
-                // await knex('products').where({id: product.id}).update({preco: novoPreco});
+                console.warn(`🛑 [AutonomousManager] Margem de risco para "${product.titulo}": ${(margem * 100).toFixed(1)}%. OCULTANDO PRODUTO.`);
+
+                // AÇÃO ATIVA: Oculta o produto para evitar prejuízo até revisão manual
+                await knex('products').where({ id: product.id }).update({ visivel: false });
             }
         }
     } catch (err) {

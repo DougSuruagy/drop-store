@@ -16,8 +16,8 @@ router.get('/', async (req, res) => {
     const offset = (pageNum - 1) * limitNum;
 
     try {
-        let query = knex('products');
-        let countQuery = knex('products');
+        let query = knex('products').where({ visivel: true });
+        let countQuery = knex('products').where({ visivel: true });
 
         if (categoria) {
             query = query.where('categoria', categoria);
