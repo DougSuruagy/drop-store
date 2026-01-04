@@ -7,8 +7,25 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
-app.use(express.json()); // parse JSON bodies
+// Middleware de Segurança
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://drop-store-rho.vercel.app' // Link da sua loja na Vercel
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Permite requisições sem origin (como apps mobile ou curl)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'A política CORS deste site não permite acesso do Origin especificado.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
+    credentials: true
+}));
+app.use(express.json());
 
 // Import routes
 const authRoutes = require('./routes/auth');
