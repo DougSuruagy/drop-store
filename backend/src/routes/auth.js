@@ -14,13 +14,13 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ error: 'Nome, email e senha são obrigatórios.' });
     }
     try {
-        const hash = await bcrypt.hash(senha, 10);
-
-        // Verifica se o usuário já existe
+        // PERFORMANCE: Verifica se o usuário já existe ANTES de gastar CPU com o hash process
         const existingUser = await knex('users').where({ email }).first();
         if (existingUser) {
             return res.status(400).json({ error: 'Este email já está cadastrado.' });
         }
+
+        const hash = await bcrypt.hash(senha, 10);
 
         const result = await knex('users').insert({
             nome,
@@ -45,7 +45,11 @@ router.post('/login', async (req, res) => {
         return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
     }
     try {
-        const user = await knex('users').where({ email }).first();
+        // PERFORMANCE: Busca apenas os campos necessários para validação e token
+        const user = await knex('users')
+            .select('id', 'nome', 'email', 'senha_hash')
+            .where({ email })
+            .first();
         if (!user) return res.status(401).json({ error: 'Credenciais inválidas.' });
 
         const match = await bcrypt.compare(senha, user.senha_hash);

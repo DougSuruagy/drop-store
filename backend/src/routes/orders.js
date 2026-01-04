@@ -9,7 +9,9 @@ router.use(verifyToken);
 // GET /orders - Listar todos os pedidos do usuário
 router.get('/', async (req, res) => {
     try {
+        // SEGURANÇA: Omitimos 'lucro_liquido' para não vazar margens da loja para o cliente
         const orders = await knex('orders')
+            .select('id', 'total', 'status', 'tracking_code', 'tracking_carrier', 'created_at', 'updated_at')
             .where({ user_id: req.user.id })
             .orderBy('created_at', 'desc');
         res.json(orders);
@@ -56,13 +58,24 @@ router.post('/:id/cancel', async (req, res) => {
             .first();
 
         if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
-        if (order.status !== 'pending') {
-            return res.status(400).json({ error: 'Só é possível cancelar pedidos pendentes.' });
+        if (order.status !== 'pending' && order.status !== 'paid') {
+            return res.status(400).json({ error: 'Não é possível cancelar pedidos já enviados ou concluídos.' });
         }
 
         await knex.transaction(async (trx) => {
-            await trx('orders').where({ id }).update({ status: 'canceled' });
-            await trx('payments').where({ order_id: id }).update({ status: 'failed' });
+            // BUG LÓGICO FIX: Restaurar o estoque dos produtos cancelados
+            const items = await trx('order_items').where({ order_id: id });
+
+            for (const item of items) {
+                await trx('products')
+                    .where({ id: item.product_id })
+                    .increment('estoque', item.quantidade);
+            }
+
+            await trx('orders').where({ id }).update({ status: 'canceled', updated_at: new Date() });
+
+            // Tenta falhar pagamento se houver registro de pagamento pendente
+            await trx('payments').where({ order_id: id }).update({ status: 'cancelled' }).catch(() => { });
         });
 
         res.json({ message: 'Pedido cancelado com sucesso.' });
