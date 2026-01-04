@@ -1,12 +1,12 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Força IPv4 para o Render
+// Força IPv4 para evitar erro ENETUNREACH no Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Ignora erros de certificado (auto-assinado)
+// Desativa verificação estrita de SSL (Necessário para Supabase no Render)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 module.exports = {
