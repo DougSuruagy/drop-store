@@ -9,11 +9,16 @@ const client = new MercadoPagoConfig({
     accessToken: process.env.MP_ACCESS_TOKEN || 'TEST-8273...-MOCK'
 });
 
+const rateLimiter = require('../middleware/rateLimiter');
+
+// SEGURANÇA: Evita spam de checkout e tentativas de fraude automatizadas
+const checkoutLimiter = rateLimiter(3, 10 * 60 * 1000);
+
 /**
  * POST /checkout
  * SUPORTA GUEST CHECKOUT (Regra 4 - Sem Cadastro Obrigatório)
  */
-router.post('/', async (req, res) => {
+router.post('/', checkoutLimiter, async (req, res) => {
     // 1. Identifica usuário (Token ou Guest)
     let userId = null;
     let userEmail = null;
@@ -138,7 +143,8 @@ router.post('/', async (req, res) => {
                     product_id: prod.id,
                     quantidade: item.quantidade,
                     titulo: prod.titulo,
-                    preco: prod.preco
+                    preco: prod.preco,
+                    fornecedor_id: prod.fornecedor_id
                 });
             }
 
@@ -175,7 +181,8 @@ router.post('/', async (req, res) => {
                 quantidade: i.quantidade,
                 preco_unitario: i.preco,
                 titulo_snapshot: i.titulo, // SEGURANÇA LÓGICA: Snapshot para não mudar com o catálogo
-                preco_snapshot: i.preco
+                preco_snapshot: i.preco,
+                fornecedor_id_snapshot: i.fornecedor_id
             })));
 
             // CORREÇÃO: Só deleta o carrinho se a origem da compra foi o carrinho

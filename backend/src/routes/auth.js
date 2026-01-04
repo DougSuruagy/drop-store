@@ -4,11 +4,15 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const knex = require('../db');
+const rateLimiter = require('../middleware/rateLimiter');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-muito-seguro-para-desenvolvimento';
 
+// SEGURANÇA: Proteção contra Brute Force e Spam
+const authLimiter = rateLimiter(5, 60 * 1000);
+
 // Register a new user
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
     const { nome, email, senha, endereco, telefone } = req.body;
     if (!nome || !email || !senha) {
         return res.status(400).json({ error: 'Nome, email e senha são obrigatórios.' });
@@ -58,7 +62,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login and return JWT (Protegido contra Ghost Accounts)
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
     const { email, senha } = req.body;
     if (!email || !senha) {
         return res.status(400).json({ error: 'Email e senha são obrigatórios.' });

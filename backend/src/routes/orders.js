@@ -90,7 +90,10 @@ router.get('/:id', async (req, res) => {
     try {
         // SEGURANÇA: Omitimos 'lucro_liquido' para não vazar margens da loja para o cliente
         const order = await knex('orders')
-            .select('id', 'total', 'status', 'tracking_code', 'tracking_carrier', 'created_at', 'updated_at')
+            .select(
+                'id', 'total', 'status', 'tracking_code', 'tracking_carrier',
+                'created_at', 'updated_at', 'endereco_entrega', 'nome_cliente', 'email_cliente'
+            )
             .where({ id, user_id: req.user.id })
             .first();
 

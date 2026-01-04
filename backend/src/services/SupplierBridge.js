@@ -35,21 +35,16 @@ const FORNECEDORES = {
  */
 async function processarPedidoAprovado(orderId) {
     try {
-        // 1. Busca dados completos do pedido
+        // 1. Busca dados completos do pedido (Snapshots garantem integridade)
         const order = await knex('orders').where({ id: orderId }).first();
         if (!order) throw new Error('Pedido não encontrado');
 
-        const items = await knex('order_items')
-            .where({ order_id: orderId })
-            .join('products', 'order_items.product_id', 'products.id')
-            .select('order_items.*', 'products.titulo', 'products.fornecedor_id');
+        const items = await knex('order_items').where({ order_id: orderId });
 
-        const user = await knex('users').where({ id: order.user_id }).first();
-
-        // 2. Agrupa itens por fornecedor
+        // 2. Agrupa itens por fornecedor (Usa o Snapshot para evitar erros logísticos)
         const itensPorFornecedor = {};
         for (const item of items) {
-            const fornecedorId = item.fornecedor_id || 1;
+            const fornecedorId = item.fornecedor_id_snapshot || 1;
             if (!itensPorFornecedor[fornecedorId]) {
                 itensPorFornecedor[fornecedorId] = [];
             }
@@ -69,7 +64,7 @@ async function processarPedidoAprovado(orderId) {
                     endereco: order.endereco_entrega
                 },
                 itens: itensDoFornecedor.map(i => ({
-                    produto: i.titulo,
+                    produto: i.titulo_snapshot || 'Produto',
                     quantidade: i.quantidade,
                     observacao: ''
                 })),

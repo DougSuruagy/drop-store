@@ -169,6 +169,7 @@ async function processarReembolso(orderId, paymentData) {
                 .whereNot({ status: 'refunded' }) // Só restaura se ainda não foi reembolsado
                 .update({
                     status: 'refunded',
+                    lucro_liquido: 0, // FINANCEIRO: Estorno zera o lucro do pedido
                     updated_at: new Date()
                 });
 
