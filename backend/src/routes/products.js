@@ -105,13 +105,22 @@ router.get('/:id', async (req, res) => {
 
         if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });
 
+        // CROSS-SELL: Busca produtos relacionados (Mesma categoria, exclui o atual)
+        const related = await knex('products')
+            .where({ categoria: product.categoria })
+            .whereNot({ id: product.id })
+            .select('id', 'titulo', 'preco', 'imagens')
+            .limit(4);
+
+        const responseData = { ...product, related };
+
         // Salva no cache
         productCache.set(id, {
-            data: product,
+            data: responseData,
             timestamp: Date.now()
         });
 
-        res.json(product);
+        res.json(responseData);
     } catch (err) {
         console.error('Product detail error:', err);
         res.status(500).json({ error: 'Erro ao buscar produto.' });

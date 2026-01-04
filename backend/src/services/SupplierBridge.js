@@ -73,16 +73,17 @@ async function processarPedidoAprovado(orderId) {
 
             const resultado = await enviarParaFornecedor(fornecedor, dadosPedido);
 
-            // Registra log no banco
+            // Registra log detalhado no banco (Audit Trail)
             await knex('order_logs').insert({
                 order_id: orderId,
-                tipo: 'ENVIADO_FORNECEDOR',
+                tipo: resultado.success ? 'ENVIADO_FORNECEDOR' : 'ERRO_FORNECEDOR',
                 detalhes: JSON.stringify({
                     fornecedor: fornecedor.nome,
                     metodo: fornecedor.tipo,
-                    status: resultado.success ? 'SUCESSO' : 'FALHA'
+                    status: resultado.success ? 'SUCESSO' : 'FALHA',
+                    payload: dadosPedido
                 })
-            }).catch(() => { });
+            }).catch(e => console.error('Log error:', e));
 
             return resultado;
         });

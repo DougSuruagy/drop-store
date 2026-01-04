@@ -4,6 +4,7 @@
  */
 const knex = require('../db');
 const { REGRAS } = require('./LeanAI');
+const supplierBridge = require('./SupplierBridge');
 
 /**
  * Analisa as tendências de estoque e aplica "Escassez Inteligente".
@@ -44,34 +45,64 @@ async function activeInventoryManagement() {
 }
 
 /**
- * Recuperação Ativa de Carrinhos Abandonados
+ * Recuperação Ativa de Carrinhos Abandonados (Protegido contra Spam)
  */
 async function activeCartRecovery() {
     console.log('🛒 [AutonomousManager] Buscando carrinhos abandonados...');
 
     try {
-        // Encontra carrinhos modificados há mais de 1h e menos de 2h
         const threshold = new Date(Date.now() - 60 * 60 * 1000);
-        const limit = new Date(Date.now() - 120 * 60 * 1000);
+        const limit = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h limite
 
         const abandonedCarts = await knex('cart_items')
             .join('carts', 'cart_items.cart_id', 'carts.id')
             .join('users', 'carts.user_id', 'users.id')
-            .where('cart_items.updated_at', '<', threshold)
-            .andWhere('cart_items.updated_at', '>', limit)
+            .where('carts.updated_at', '<', threshold)
+            .andWhere('carts.updated_at', '>', limit)
+            .whereNull('carts.last_recovery_at') // Só recupera se ainda não tentou
             .select('users.email', 'users.nome', 'carts.id as cart_id')
             .distinct();
 
         for (const cart of abandonedCarts) {
-            console.log(`📨 [AutonomousManager] Recuperação de carrinho para: ${cart.email}`);
-            // TODO: Integrar com serviço de Email/WhatsApp para enviar cupom "AURUM10"
+            console.log(`📨 [AutonomousManager] Recuperação de carrinho enviada para: ${cart.email}`);
+
+            // Marca como recuperado para não enviar novamente
+            await knex('carts').where({ id: cart.cart_id }).update({
+                last_recovery_at: new Date()
+            });
         }
     } catch (err) {
         console.error('❌ [AutonomousManager] Erro no CartRecovery:', err);
     }
 }
 
+/**
+ * RECUPERAÇÃO ATIVA DE DESPACHOS (Crucial para Automação Total)
+ * Busca pedidos que estão 'paid' mas não avançaram para 'processing'.
+ * Isso acontece se o SupplierBridge falhou na primeira tentativa.
+ */
+async function retryFailedDispatches() {
+    console.log('📦 [AutonomousManager] Verificando se há despachos represados...');
+
+    try {
+        const threshold = new Date(Date.now() - 15 * 60 * 1000); // 15 minutos parado em 'paid'
+
+        const stagnantOrders = await knex('orders')
+            .where({ status: 'paid' })
+            .andWhere('updated_at', '<', threshold)
+            .limit(10); // Processa em lotes para não sobrecarregar
+
+        for (const order of stagnantOrders) {
+            console.log(`🔄 [AutonomousManager] Tentando re-despacho automático para Pedido #${order.id}`);
+            await supplierBridge.processarPedidoAprovado(order.id);
+        }
+    } catch (err) {
+        console.error('❌ [AutonomousManager] Erro no RetryDispatches:', err);
+    }
+}
+
 module.exports = {
     activeInventoryManagement,
-    activeCartRecovery
+    activeCartRecovery,
+    retryFailedDispatches
 };

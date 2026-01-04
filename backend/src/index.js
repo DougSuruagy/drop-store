@@ -114,10 +114,12 @@ const startServer = async () => {
             // Roda a primeira vez e depois a cada 30 minutos
             autonomousManager.activeInventoryManagement();
             autonomousManager.activeCartRecovery();
+            autonomousManager.retryFailedDispatches();
 
             setInterval(() => {
                 autonomousManager.activeInventoryManagement();
                 autonomousManager.activeCartRecovery();
+                autonomousManager.retryFailedDispatches();
             }, 30 * 60 * 1000);
         });
     } catch (err) {
