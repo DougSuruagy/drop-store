@@ -14,9 +14,12 @@ router.get('/', async (req, res) => {
         if (maxPrice) query = query.andWhere('preco', '<=', parseFloat(maxPrice));
 
         if (q) {
+            const searchTerms = q.split(' ').filter(term => term.trim().length > 0);
             query = query.where(function () {
-                this.where('titulo', 'ilike', `%${q}%`)
-                    .orWhere('descricao', 'ilike', `%${q}%`);
+                searchTerms.forEach(term => {
+                    this.orWhere('titulo', 'ilike', `%${term}%`)
+                        .orWhere('descricao', 'ilike', `%${term}%`);
+                });
             });
         }
 

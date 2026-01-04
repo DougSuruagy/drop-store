@@ -50,7 +50,7 @@ export default async function Home() {
             Descubra uma seleção exclusiva de produtos que simplificam sua rotina e elevam seu lifestyle. Qualidade garantida e entrega rastreada.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <a href="#products" className="px-8 py-4 bg-gray-900 text-white rounded-full font-bold shadow-lg hover:bg-gray-800 hover:scale-105 transition transform duration-200">
+            <a href="/products" className="px-8 py-4 bg-gray-900 text-white rounded-full font-bold shadow-lg hover:bg-gray-800 hover:scale-105 transition transform duration-200">
               Ver Ofertas
             </a>
             <a href="/vip" className="px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-full font-bold hover:bg-gray-50 transition">
