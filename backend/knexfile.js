@@ -1,13 +1,24 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Força IPv4 para o Render
+// Força IPv4 (Resolve ENETUNREACH no Render)
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Ignora erro de certificado SSL
+// Ignora erro de certificado SSL do Supabase
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// Log Forense para o Render (ajuda a achar erros de digitação na URL)
+if (process.env.DATABASE_URL) {
+  try {
+    const rawUrl = process.env.DATABASE_URL.trim();
+    const url = new URL(rawUrl);
+    console.log(`[Knex Debug] Host: ${url.hostname}, Port: ${url.port}, User: ${url.username}`);
+  } catch (e) {
+    console.log('[Knex Debug] Erro ao ler a URL: ', e.message);
+  }
+}
 
 module.exports = {
   development: {
@@ -20,9 +31,8 @@ module.exports = {
   production: {
     client: 'pg',
     connection: {
-      // O segredo para o erro "Tenant not found" no Render é limpar a URL e garantir o SSL
       connectionString: (process.env.DATABASE_URL || '').trim(),
-      ssl: { rejectUnauthorized: false }
+      ssl: { rejectUnauthorized: false },
     },
     pool: {
       min: 0,
