@@ -1,7 +1,9 @@
 // src/routes/products.js
 const express = require('express');
 const router = express.Router();
-const knex = require('knex')(require('../../knexfile').development);
+const environment = process.env.NODE_ENV || 'development';
+const config = require('../../knexfile')[environment];
+const knex = require('knex')(config);
 
 // GET /products - list with optional filters (category, price range, search)
 router.get('/', async (req, res) => {

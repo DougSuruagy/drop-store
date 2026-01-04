@@ -3,7 +3,9 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const knex = require('knex')(require('../../knexfile').development);
+const environment = process.env.NODE_ENV || 'development';
+const config = require('../../knexfile')[environment];
+const knex = require('knex')(config);
 
 // Register a new user
 router.post('/register', async (req, res) => {
