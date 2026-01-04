@@ -94,8 +94,10 @@ router.post('/', async (req, res) => {
                 const subtotal = Number(prod.preco) * item.quantidade;
                 const subtotalCost = Number(prod.preco_custo || 0) * item.quantidade;
 
-                // ANTI-LOSS
-                if (subtotal < (subtotalCost * 1.15)) { // Margem de segurança de 15%
+                // ANTI-LOSS: Usa LeanAI para validação consistente de margem (40%)
+                const leanAI = require('../services/LeanAI');
+                const validacao = leanAI.validarVenda(Number(prod.preco), Number(prod.preco_custo || 0));
+                if (!validacao.allowed) {
                     throw new Error(`MARGEM_INSUFICIENTE_${prod.titulo}`);
                 }
 
