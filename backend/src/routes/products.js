@@ -17,16 +17,26 @@ router.get('/', async (req, res) => {
         if (maxPrice) query = query.andWhere('preco', '<=', parseFloat(maxPrice));
 
         if (q) {
-            const searchTerms = q.split(' ').filter(term => term.trim().length > 0);
+            const searchTerms = q.split(' ').filter(term => term.trim().length > 0).slice(0, 5); // Limit terms for safety
             query = query.where(function () {
                 searchTerms.forEach(term => {
                     this.orWhere('titulo', 'ilike', `%${term}%`)
+                        // Otimização: Buscar na descrição apenas se necessário ou usar GIN Index no futuro
                         .orWhere('descricao', 'ilike', `%${term}%`);
                 });
             });
         }
 
-        const products = await query.select()
+        // PERFORMANCE & SECURITY: Selecionar apenas campos públicos necessários para a vitrine
+        // Evita trafegar 'descricao' gigante ou 'preco_custo' (segredo comercial)
+        const products = await query.select(
+            'id',
+            'titulo',
+            'preco',
+            'imagens',
+            'categoria',
+            'estoque'
+        )
             .orderBy('id', 'desc')
             .limit(limitNum)
             .offset(offset);
