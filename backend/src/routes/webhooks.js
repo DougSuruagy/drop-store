@@ -88,6 +88,15 @@ router.post('/mercadopago', async (req, res) => {
 async function processarPagamentoAprovado(orderId, paymentData) {
     console.log(`✅ [Webhook] Processando aprovação do pedido #${orderId}`);
 
+    // IDEMPOTÊNCIA: Busca status atual do pedido
+    const currentOrder = await knex('orders').where({ id: orderId }).first();
+    if (!currentOrder) return console.log(`[Webhook] Pedido #${orderId} não encontrado.`);
+
+    // Se já estiver pago ou em processamento, não repete o fluxo de automação
+    if (['paid', 'processing', 'shipped', 'delivered'].includes(currentOrder.status)) {
+        return console.log(`[Webhook] Pedido #${orderId} já foi processado anteriormente. Status: ${currentOrder.status}`);
+    }
+
     // 1. Atualiza status do pedido
     await knex('orders').where({ id: orderId }).update({
         status: 'paid',
@@ -96,7 +105,7 @@ async function processarPagamentoAprovado(orderId, paymentData) {
         updated_at: new Date()
     });
 
-    // 2. Registra pagamento
+    // 2. Registra pagamento (Usa catch para ignorar duplicatas de Webhook)
     await knex('payments').insert({
         order_id: orderId,
         payment_id: paymentData.id?.toString(),
@@ -105,20 +114,11 @@ async function processarPagamentoAprovado(orderId, paymentData) {
         fee: paymentData.fee_details?.[0]?.amount || 0,
         net_amount: paymentData.transaction_details?.net_received_amount || paymentData.transaction_amount,
         method: paymentData.payment_method_id
-    }).catch(err => {
-        // Ignora se tabela não existir ou duplicata
-        console.log('[Webhook] Aviso ao registrar pagamento:', err.message);
-    });
+    }).catch(() => { });
 
     // 3. AUTOMAÇÃO: Encaminha ao fornecedor
     const resultado = await supplierBridge.processarPedidoAprovado(orderId);
     console.log(`📦 [Webhook] Encaminhamento ao fornecedor:`, resultado);
-
-    // 4. Calcula e registra lucro
-    const order = await knex('orders').where({ id: orderId }).first();
-    if (order?.lucro_liquido) {
-        console.log(`💰 [Webhook] Lucro registrado: R$ ${order.lucro_liquido}`);
-    }
 
     console.log(`🎉 [Webhook] Pedido #${orderId} processado com sucesso!`);
 }
@@ -139,6 +139,14 @@ async function atualizarStatusPedido(orderId, novoStatus) {
  */
 async function processarReembolso(orderId, paymentData) {
     console.log(`💸 [Webhook] Processando reembolso do pedido #${orderId}`);
+
+    const currentOrder = await knex('orders').where({ id: orderId }).first();
+    if (!currentOrder) return;
+
+    // IDEMPOTÊNCIA: Se já foi reembolsado, não altera estoque novamente
+    if (currentOrder.status === 'refunded') {
+        return console.log(`[Webhook] Pedido #${orderId} já consta como reembolsado.`);
+    }
 
     // Atualiza status
     await knex('orders').where({ id: orderId }).update({
