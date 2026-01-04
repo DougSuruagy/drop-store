@@ -2,13 +2,21 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { API_URL } from '../../lib/api';
+import { useRouter } from 'next/navigation';
+import { fetchAPI } from '../../lib/api';
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const router = useRouter();
+    const [formData, setFormData] = useState({
+        email: '',
+        senha: '',
+    });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -16,26 +24,20 @@ export default function LoginPage() {
         setError('');
 
         try {
-            const res = await fetch(`${API_URL}/auth/login`, {
+            const data = await fetchAPI('/auth/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, senha: password }),
+                body: JSON.stringify(formData),
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Erro ao realizar login');
+            // Armazenar token (simples)
+            localStorage.setItem('token', data.token);
+            if (data.user) {
+                localStorage.setItem('user', JSON.stringify(data.user));
             }
 
-            // Salva o token
-            localStorage.setItem('token', data.token);
-
-            // Verifica se há url de retorno
-            const params = new URLSearchParams(window.location.search);
-            const redirect = params.get('redirect') || '/';
-
-            window.location.href = redirect;
+            // Redirecionar para Dashboard ou Home
+            router.push('/');
+            router.refresh();
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -52,7 +54,7 @@ export default function LoginPage() {
                     </Link>
                     <h2 className="mt-6 text-2xl font-bold text-gray-900">Acesse sua conta</h2>
                     <p className="mt-2 text-sm text-gray-600">
-                        Ou <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">crie uma nova conta grátis</Link>
+                        Não tem uma conta? <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">Cadastre-se</Link>
                     </p>
                 </div>
 
@@ -65,52 +67,38 @@ export default function LoginPage() {
 
                     <div className="space-y-4">
                         <div>
-                            <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <input
-                                id="email-address"
+                                id="email"
                                 name="email"
                                 type="email"
                                 autoComplete="email"
                                 required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition"
+                                value={formData.email}
+                                onChange={handleChange}
+                                className="appearance-none block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                 placeholder="seu@email.com"
                             />
                         </div>
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                            <label htmlFor="senha" className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
                             <input
-                                id="password"
-                                name="password"
+                                id="senha"
+                                name="senha"
                                 type="password"
                                 autoComplete="current-password"
                                 required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition"
-                                placeholder="••••••••"
+                                value={formData.senha}
+                                onChange={handleChange}
+                                className="appearance-none block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                placeholder="Sua senha"
                             />
                         </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                            <input
-                                id="remember-me"
-                                name="remember-me"
-                                type="checkbox"
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                                Lembrar de mim
-                            </label>
-                        </div>
-
                         <div className="text-sm">
-                            <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                                Esqueceu a senha?
-                            </a>
+                            <a href="#" className="font-medium text-blue-600 hover:text-blue-500">Esqueceu a senha?</a>
                         </div>
                     </div>
 
@@ -120,12 +108,7 @@ export default function LoginPage() {
                             disabled={loading}
                             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition disabled:opacity-70"
                         >
-                            {loading ? (
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            ) : 'Entrar'}
+                            {loading ? 'Acessando...' : 'Entrar'}
                         </button>
                     </div>
                 </form>

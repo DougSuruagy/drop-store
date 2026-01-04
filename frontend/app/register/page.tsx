@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { API_URL } from '../../lib/api';
+import { fetchAPI } from '../../lib/api';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -26,20 +26,12 @@ export default function RegisterPage() {
         setError('');
 
         try {
-            const res = await fetch(`${API_URL}/auth/register`, {
+            await fetchAPI('/auth/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Erro ao criar conta');
-            }
-
-            // Login automático ou redirecionar para login
-            // Para simplificar, redirecionamos para login com msg de sucesso (opcional)
+            // Redirecionar para login com msg de sucesso
             router.push('/login');
         } catch (err: any) {
             setError(err.message);

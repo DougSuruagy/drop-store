@@ -22,15 +22,16 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Este email já está cadastrado.' });
         }
 
-        const [id] = await knex('users').insert({
+        const result = await knex('users').insert({
             nome,
             email,
             senha_hash: hash,
             endereco,
             telefone,
-        }).returning('id');
+        }).returning(['id', 'email', 'nome']);
 
-        res.status(201).json({ id, email, nome });
+        const newUser = result[0];
+        res.status(201).json(newUser);
     } catch (err) {
         console.error('Register error:', err);
         res.status(500).json({ error: 'Erro ao registrar usuário. Tente novamente.' });
