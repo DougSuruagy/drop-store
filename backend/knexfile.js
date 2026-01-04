@@ -1,7 +1,6 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// FORÇA O NODE A USAR IPV4 EM TUDO
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
@@ -12,11 +11,7 @@ if (dns.setDefaultResultOrder) {
 module.exports = {
   development: {
     client: 'pg',
-    connection: {
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      family: 4
-    },
+    connection: process.env.DATABASE_URL + (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'sslmode=no-verify',
     pool: { min: 0, max: 10 },
     migrations: { tableName: 'knex_migrations' }
   },
@@ -25,8 +20,7 @@ module.exports = {
     client: 'pg',
     connection: {
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      family: 4
+      ssl: { rejectUnauthorized: false }
     },
     pool: {
       min: 0,
