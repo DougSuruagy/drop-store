@@ -1,12 +1,12 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Força IPv4 (Essencial para o Render)
+// Força IPv4 (Resolve ENETUNREACH no Render)
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Ignora erro de certificado SSL
+// MATA O ERRO DE CERTIFICADO DE UMA VEZ POR TODAS
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 module.exports = {
@@ -21,6 +21,7 @@ module.exports = {
     client: 'pg',
     connection: {
       connectionString: (process.env.DATABASE_URL || '').trim(),
+      // Configuração extrema para ignorar SSL no Postgres
       ssl: { rejectUnauthorized: false }
     },
     pool: {
