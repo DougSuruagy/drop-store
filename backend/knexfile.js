@@ -1,6 +1,9 @@
 require('dotenv').config();
 const dns = require('dns');
 
+// FORÇA O NODE A ACEITAR CERTIFICADOS SELF-SIGNED (COMUM NO RENDER/SUPABASE)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 // Resolve o problema de IPv6 do Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
