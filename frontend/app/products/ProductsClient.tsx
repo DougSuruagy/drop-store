@@ -29,11 +29,16 @@ export default function ProductsClient() {
         params.append('limit', PRODUCTS_PER_PAGE.toString());
 
         const url = `${API_URL}/products?${params.toString()}`;
+        console.log('Fetching products from:', url);
 
         try {
             const res = await fetch(url, { cache: 'no-store' });
-            if (!res.ok) return [];
+            if (!res.ok) {
+                console.error('Fetch error status:', res.status);
+                throw new Error(`Erro API: ${res.status}`);
+            }
             const data = await res.json();
+            console.log('Products received:', data.length);
 
             if (data.length < PRODUCTS_PER_PAGE) {
                 setHasMore(false);
@@ -49,6 +54,8 @@ export default function ProductsClient() {
             return data;
         } catch (error) {
             console.error('Failed to fetch products:', error);
+            // Em vez de retornar [], vamos setar um estado de erro se quisermos mostrar na UI,
+            // mas por enquanto, return [] mantém o comportamento compátivel, mas loga o erro.
             return [];
         }
     }, [searchParams]);
