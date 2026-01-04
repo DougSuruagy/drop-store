@@ -48,6 +48,22 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Diagnostic DB check
+app.get('/api/db-debug', async (req, res) => {
+    try {
+        const knex = require('./db');
+        const result = await knex.raw('SELECT 1+1 AS result');
+        res.json({ status: 'connected', result: result.rows[0].result });
+    } catch (err) {
+        res.status(500).json({
+            status: 'error',
+            message: err.message,
+            code: err.code,
+            stack: err.stack ? 'present' : 'absent'
+        });
+    }
+});
+
 // Global error handler (fallback)
 app.use((err, req, res, next) => {
     console.error('Unexpected error:', err);
