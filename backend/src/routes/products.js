@@ -1,20 +1,26 @@
 // src/routes/products.js
 const express = require('express');
 const router = express.Router();
-const environment = process.env.NODE_ENV || 'development';
-const config = require('../../knexfile')[environment];
-const knex = require('knex')(config);
+const knex = require('../db');
 
 // GET /products - list with optional filters (category, price range, search)
 router.get('/', async (req, res) => {
     const { categoria, minPrice, maxPrice, q } = req.query;
     try {
         let query = knex('products');
+
         if (categoria) query = query.where('categoria', categoria);
-        if (minPrice) query = query.andWhere('preco', '>=', minPrice);
-        if (maxPrice) query = query.andWhere('preco', '<=', maxPrice);
-        if (q) query = query.andWhere('titulo', 'ilike', `%${q}%`);
-        const products = await query.select();
+        if (minPrice) query = query.andWhere('preco', '>=', parseFloat(minPrice));
+        if (maxPrice) query = query.andWhere('preco', '<=', parseFloat(maxPrice));
+
+        if (q) {
+            query = query.where(function () {
+                this.where('titulo', 'ilike', `%${q}%`)
+                    .orWhere('descricao', 'ilike', `%${q}%`);
+            });
+        }
+
+        const products = await query.select().orderBy('created_at', 'desc');
         res.json(products);
     } catch (err) {
         console.error('Products list error:', err);
@@ -25,6 +31,12 @@ router.get('/', async (req, res) => {
 // GET /products/:id - product detail
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
+
+    // Validação básica do ID (bug lógico se for string malformada)
+    if (isNaN(parseInt(id))) {
+        return res.status(400).json({ error: 'ID de produto inválido.' });
+    }
+
     try {
         const product = await knex('products').where({ id }).first();
         if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });

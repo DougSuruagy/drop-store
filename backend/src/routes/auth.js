@@ -3,9 +3,9 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const environment = process.env.NODE_ENV || 'development';
-const config = require('../../knexfile')[environment];
-const knex = require('knex')(config);
+const knex = require('../db');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-muito-seguro-para-desenvolvimento';
 
 // Register a new user
 router.post('/register', async (req, res) => {
@@ -15,6 +15,13 @@ router.post('/register', async (req, res) => {
     }
     try {
         const hash = await bcrypt.hash(senha, 10);
+
+        // Verifica se o usuário já existe
+        const existingUser = await knex('users').where({ email }).first();
+        if (existingUser) {
+            return res.status(400).json({ error: 'Este email já está cadastrado.' });
+        }
+
         const [id] = await knex('users').insert({
             nome,
             email,
@@ -22,10 +29,11 @@ router.post('/register', async (req, res) => {
             endereco,
             telefone,
         }).returning('id');
+
         res.status(201).json({ id, email, nome });
     } catch (err) {
         console.error('Register error:', err);
-        res.status(500).json({ error: 'Erro ao registrar usuário.' });
+        res.status(500).json({ error: 'Erro ao registrar usuário. Tente novamente.' });
     }
 });
 
@@ -38,10 +46,24 @@ router.post('/login', async (req, res) => {
     try {
         const user = await knex('users').where({ email }).first();
         if (!user) return res.status(401).json({ error: 'Credenciais inválidas.' });
+
         const match = await bcrypt.compare(senha, user.senha_hash);
         if (!match) return res.status(401).json({ error: 'Credenciais inválidas.' });
-        const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token });
+
+        const token = jwt.sign(
+            { id: user.id, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                nome: user.nome,
+                email: user.email
+            }
+        });
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'Erro ao fazer login.' });
