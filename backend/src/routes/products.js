@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
             });
         }
 
-        const products = await query.select(); // Removido orderBy temporariamente para diagnóstico
+        const products = await query.select().orderBy('id', 'desc');
         res.json(products);
     } catch (err) {
         console.error('Products list error:', err);
