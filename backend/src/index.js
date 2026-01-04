@@ -9,9 +9,13 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware de Performance e Segurança
 app.use(compression()); // GZIP
-app.use(helmet()); // Security Headers
+app.use(helmet());
 
-// Middleware de Segurança
+// PERFORMANCE & SEGURANÇA: Limite de payload para evitar ataques de DoS (Denial of Service)
+// 10kb é mais que suficiente para requisições de carrinho e checkout.
+app.use(express.json({ limit: '10kb' }));
+
+// Middleware de CORS robusto
 const allowedOrigins = [
     'http://localhost:3000',
     'https://drop-store-rho.vercel.app'
@@ -19,20 +23,22 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
+        // Permite requisições sem origin (como apps mobile ou chamadas server-side confiáveis)
         if (!origin) return callback(null, true);
 
-        // Check if origin is in allowed list or is a Vercel deployment
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
-            return callback(null, true);
-        }
+        // Otimização: Verificação rápida de whitelist e subdomínios Vercel
+        const isAllowed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
 
-        const msg = 'A política CORS deste site não permite acesso do Origin especificado.';
-        return callback(new Error(msg), false);
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            callback(new Error('CORS Policy: Origin não autorizado.'), false);
+        }
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
 
 // Import routes
 const authRoutes = require('./routes/auth');
