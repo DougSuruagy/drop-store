@@ -1,8 +1,12 @@
+import dynamic from 'next/dynamic';
+
+// Importação dinâmica com SSR desabilitado.
+// Isso garante que o componente e seus hooks (useSearchParams) só sejam executados no navegador.
+const ProductsClient = dynamic(() => import('./ProductsClient'), {
+    ssr: false,
+    loading: () => <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>
+});
+
 export default function ProductsPage() {
-    return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <h1 className="text-2xl font-bold text-gray-900">Catálogo de Produtos</h1>
-            <p className="ml-4 text-gray-600">Carregando sistema...</p>
-        </div>
-    );
+    return <ProductsClient />;
 }
