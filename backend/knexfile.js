@@ -1,6 +1,7 @@
 require('dotenv').config();
 const dns = require('dns');
 
+// Resolve o problema de IPv6 do Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
@@ -11,7 +12,7 @@ if (dns.setDefaultResultOrder) {
 module.exports = {
   development: {
     client: 'pg',
-    connection: process.env.DATABASE_URL + (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'sslmode=no-verify',
+    connection: process.env.DATABASE_URL,
     pool: { min: 0, max: 10 },
     migrations: { tableName: 'knex_migrations' }
   },
@@ -20,7 +21,9 @@ module.exports = {
     client: 'pg',
     connection: {
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
+      // O driver 'pg' usa estas configurações para estabilizar no Render
+      ssl: { rejectUnauthorized: false },
+      family: 4
     },
     pool: {
       min: 0,
