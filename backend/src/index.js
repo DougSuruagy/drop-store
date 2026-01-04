@@ -1,9 +1,15 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
+const helmet = require('helmet');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Middleware de Performance e Segurança
+app.use(compression()); // GZIP
+app.use(helmet()); // Security Headers
 
 // Middleware de Segurança
 const allowedOrigins = [
