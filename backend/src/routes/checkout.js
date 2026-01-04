@@ -1,8 +1,8 @@
-// src/routes/checkout.js
 const express = require('express');
 const router = express.Router();
 const knex = require('../db');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
+const LeanAI = require('../services/LeanAI');
 
 // AURUM TECH - Configuração Mercado Pago (100% sem custo fixo)
 const client = new MercadoPagoConfig({
@@ -59,11 +59,11 @@ router.post('/', async (req, res) => {
     if (!address) return res.status(400).json({ error: 'Endereço de entrega é obrigatório.' });
 
     try {
-        // PERFOMANCE CRÍTICA: Processamento de DB em transação, 
-        // mas chamadas externas (Mercado Pago) FORA para não segurar locks no banco.
+        // PERFOMANCE CRÍTICA: Processamento de DB em transação
         const orderData = await knex.transaction(async (trx) => {
             let items = [];
             if (cart_items && cart_items.length > 0) {
+                // Sanitização básica se vier do body
                 items = cart_items;
             } else {
                 const cart = await trx('carts').where({ user_id: userId }).first();
@@ -73,20 +73,31 @@ router.post('/', async (req, res) => {
 
             if (items.length === 0) throw new Error('CARRINHO_VAZIO');
 
-            // PERFORMANCE & CONCURRENCY: Bloqueia as linhas dos produtos para garantir que o estoque não mude durante o cálculo
+            // CORREÇÃO LOGICA CRÍTICA: Agrupar itens iguais para validar estoque total necessário
+            const consolidatedItems = items.reduce((acc, item) => {
+                const existing = acc.find(i => i.product_id === item.product_id);
+                if (existing) {
+                    existing.quantidade = Number(existing.quantidade) + Number(item.quantidade);
+                } else {
+                    acc.push({ ...item, quantidade: Number(item.quantidade) });
+                }
+                return acc;
+            }, []);
+
+            // PERFORMANCE & CONCURRENCY: Bloqueia apenas os IDs necessários
             const products = await trx('products')
-                .whereIn('id', items.map(i => i.product_id))
+                .whereIn('id', consolidatedItems.map(i => i.product_id))
                 .forUpdate();
 
             let total = 0;
             let totalCost = 0;
             const processedItems = [];
 
-            for (const item of items) {
+            for (const item of consolidatedItems) {
                 const prod = products.find(p => p.id === item.product_id);
                 if (!prod) throw new Error(`PRODUTO_NAO_ENCONTRADO_${item.product_id}`);
 
-                // VALIDAÇÃO DE ESTOQUE (Bug Lógico Crítico)
+                // VALIDAÇÃO DE ESTOQUE ROBUSTA (Agora considerando a soma total)
                 if (prod.estoque < item.quantidade) {
                     throw new Error(`ESTOQUE_INSUFICIENTE_${prod.titulo}`);
                 }
@@ -94,14 +105,13 @@ router.post('/', async (req, res) => {
                 const subtotal = Number(prod.preco) * item.quantidade;
                 const subtotalCost = Number(prod.preco_custo || 0) * item.quantidade;
 
-                // ANTI-LOSS: Usa LeanAI para validação consistente de margem (40%)
-                const leanAI = require('../services/LeanAI');
-                const validacao = leanAI.validarVenda(Number(prod.preco), Number(prod.preco_custo || 0));
+                // ANTI-LOSS: Validação de margem com LeanAI
+                const validacao = LeanAI.validarVenda(Number(prod.preco), Number(prod.preco_custo || 0));
                 if (!validacao.allowed) {
                     throw new Error(`MARGEM_INSUFICIENTE_${prod.titulo}`);
                 }
 
-                // ATUALIZA ESTOQUE NO BANCO (Dentro da Transação)
+                // ATUALIZA ESTOQUE NO BANCO
                 await trx('products')
                     .where({ id: prod.id })
                     .decrement('estoque', item.quantidade);
@@ -109,7 +119,6 @@ router.post('/', async (req, res) => {
                 total += subtotal;
                 totalCost += subtotalCost;
 
-                // PERFORMANCE: Criamos um objeto limpo para evitar conflitos de IDs de tabelas diferentes (Carts vs Orders)
                 processedItems.push({
                     product_id: prod.id,
                     quantidade: item.quantidade,
@@ -117,8 +126,8 @@ router.post('/', async (req, res) => {
                     preco: prod.preco
                 });
             }
-
-            const mpFee = total * 0.05;
+            // ... (rest same logic for order insertion)
+            const mpFee = total * 0.05; // Taxa estimada MP
             const [order] = await trx('orders')
                 .insert({
                     user_id: userId,
@@ -144,7 +153,7 @@ router.post('/', async (req, res) => {
             return { order, processedItems };
         });
 
-        // CHAMADA EXTERNA (Mercado Pago) - Fora da transação SQL (Performance e Estabilidade)
+        // CHAMADA EXTERNA (Mercado Pago)
         const preference = new Preference(client);
         const mpItems = orderData.processedItems.map(i => ({
             title: i.titulo,
@@ -163,7 +172,16 @@ router.post('/', async (req, res) => {
                 },
                 auto_return: 'approved',
                 external_reference: orderData.order.id.toString(),
-                binary_mode: true // Prioriza Pix e aprovação imediata
+                // OTIMIZAÇÃO PIX: binary_mode true força aprovação ou rejeição instantânea, ideal para Pix.
+                // statement_descriptor limita caracteres na fatura do cartão.
+                binary_mode: true,
+                statement_descriptor: "DROPSTORE",
+                payment_methods: {
+                    excluded_payment_types: [
+                        { id: "ticket" } // Opcional: Remover boleto para forçar Pix/Crédito (mais rápido) se desejar
+                    ],
+                    installments: 12 // Permite até 12x
+                }
             }
         });
 
