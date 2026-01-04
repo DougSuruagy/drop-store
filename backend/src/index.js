@@ -105,8 +105,20 @@ const startServer = async () => {
             console.log('✅ Seeds concluídos.');
         }
 
+        const autonomousManager = require('./services/AutonomousManager');
+
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 Backend rodando na porta ${PORT}`);
+
+            // ATIVAÇÃO DO MOTOR AUTÔNOMO (Inteligência Ativa)
+            // Roda a primeira vez e depois a cada 30 minutos
+            autonomousManager.activeInventoryManagement();
+            autonomousManager.activeCartRecovery();
+
+            setInterval(() => {
+                autonomousManager.activeInventoryManagement();
+                autonomousManager.activeCartRecovery();
+            }, 30 * 60 * 1000);
         });
     } catch (err) {
         console.error('❌ Falha ao iniciar o servidor:', err);
