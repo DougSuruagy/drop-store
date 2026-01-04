@@ -1,21 +1,13 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Vacina contra o erro de IPv6 do Render
+// Força IPv4 (Essencial para o Render encontrar o Supabase)
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Mata o erro de certificado SSL globalmente
+// Desativa a verificação de SSL que causa erro no Render
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
-// Log para debug (aparecerá no seu log do Render para conferirmos o host)
-if (process.env.DATABASE_URL) {
-  const parts = process.env.DATABASE_URL.split('@');
-  if (parts.length > 1) {
-    console.log('Conectando ao banco em:', parts[1].split(':')[0]);
-  }
-}
 
 module.exports = {
   development: {
@@ -27,11 +19,12 @@ module.exports = {
 
   production: {
     client: 'pg',
-    connection: {
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
+    // Usamos a string de conexão DIRETA. O segredo está no formato da string no Render!
+    connection: process.env.DATABASE_URL,
+    pool: {
+      min: 0,
+      max: 2, // Limite baixo para o plano free do Supabase
     },
-    pool: { min: 0, max: 5 },
     migrations: {
       tableName: 'knex_migrations'
     }
