@@ -2,8 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const knex = require('../db');
+const leanAI = require('../services/LeanAI');
 
-// GET /products - list with optional filters (category, price range, search)
+// GET /products - list with optional filters/AI Curation
 router.get('/', async (req, res) => {
     const { categoria, minPrice, maxPrice, q } = req.query;
     try {
@@ -23,8 +24,17 @@ router.get('/', async (req, res) => {
             });
         }
 
-        const products = await query.select().orderBy('id', 'desc');
-        res.json(products);
+        const products = await query.select()
+            .orderBy('id', 'desc')
+            .limit(20); // PERFORMANCE: Evita carregar o banco inteiro de uma vez
+
+        // Adiciona análise da Curadoria Automática (Princípio 9)
+        const curatedProducts = products.map(p => ({
+            ...p,
+            ai_analysis: leanAI.validateProduct(p)
+        }));
+
+        res.json(curatedProducts);
     } catch (err) {
         console.error('Products list error:', err);
         res.status(500).json({ error: 'Erro ao listar produtos.' });
@@ -35,7 +45,6 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
-    // Validação básica do ID (bug lógico se for string malformada)
     if (isNaN(parseInt(id))) {
         return res.status(400).json({ error: 'ID de produto inválido.' });
     }

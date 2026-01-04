@@ -3,13 +3,22 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+interface User {
+    nome: string;
+    email: string;
+}
+
 export default function Navbar() {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                console.error('Failed to parse user', e);
+            }
         }
     }, []);
 

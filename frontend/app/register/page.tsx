@@ -33,23 +33,29 @@ export default function RegisterPage() {
 
             // Redirecionar para login com msg de sucesso
             router.push('/login');
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const error = err as Error;
+            setError(error.message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-            <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl">
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
+            <div className="max-w-md w-full space-y-8 bg-white p-12 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100">
                 <div className="text-center">
-                    <Link href="/" className="font-bold text-3xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        DropStore
+                    <Link href="/" className="group inline-flex items-center gap-2 mb-8">
+                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center rotate-3 group-hover:rotate-12 transition shadow-lg shadow-blue-200">
+                            <span className="text-white font-black text-xl italic">A</span>
+                        </div>
+                        <span className="font-black text-2xl text-slate-900 tracking-tighter">
+                            AURUM<span className="text-blue-600">TECH</span>
+                        </span>
                     </Link>
-                    <h2 className="mt-6 text-2xl font-bold text-gray-900">Crie sua conta</h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                        Já tem uma conta? <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">Faça login</Link>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter italic">Nova Conta</h2>
+                    <p className="mt-4 text-sm text-slate-500 font-medium">
+                        Já é cliente? <Link href="/login" className="font-bold text-blue-600 hover:text-blue-500">Fazer login</Link>
                     </p>
                 </div>
 

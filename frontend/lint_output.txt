@@ -1,0 +1,46 @@
+
+> frontend@0.1.0 lint
+> eslint
+
+
+C:\Users\Douglas\Drop\frontend\app\cart\page.tsx
+  51:18  warning  'err' is defined but never used                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  93:41  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Douglas\Drop\frontend\app\login\page.tsx
+  41:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Douglas\Drop\frontend\app\orders\[id]\page.tsx
+  43:22  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  90:45  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Douglas\Drop\frontend\app\orders\page.tsx
+  33:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Douglas\Drop\frontend\app\register\page.tsx
+  36:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Douglas\Drop\frontend\components\Navbar.tsx
+   7:38  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  12:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Douglas\Drop\frontend\components\Navbar.tsx:12:13
+  10 |         const storedUser = localStorage.getItem('user');
+  11 |         if (storedUser) {
+> 12 |             setUser(JSON.parse(storedUser));
+     |             ^^^^^^^ Avoid calling setState() directly within an effect
+  13 |         }
+  14 |     }, []);
+  15 |  react-hooks/set-state-in-effect
+
+C:\Users\Douglas\Drop\frontend\lib\api.ts
+  37:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+Ô£û 10 problems (6 errors, 4 warnings)
+
