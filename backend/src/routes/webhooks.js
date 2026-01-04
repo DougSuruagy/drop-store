@@ -105,22 +105,44 @@ async function processarPagamentoAprovado(orderId, paymentData) {
         updated_at: new Date()
     });
 
-    // 2. Registra pagamento (Usa catch para ignorar duplicatas de Webhook)
+    // 2. Registra pagamento (Usa catch para ignorar duplicatas)
+    const transactionAmount = paymentData.transaction_amount;
+    const fee = paymentData.fee_details?.[0]?.amount || 0;
+    const netReceived = paymentData.transaction_details?.net_received_amount || (transactionAmount - fee);
+
     await knex('payments').insert({
         order_id: orderId,
         payment_id: paymentData.id?.toString(),
         status: 'approved',
-        amount: paymentData.transaction_amount,
-        fee: paymentData.fee_details?.[0]?.amount || 0,
-        net_amount: paymentData.transaction_details?.net_received_amount || paymentData.transaction_amount,
+        amount: transactionAmount,
+        fee: fee,
+        net_amount: netReceived,
         method: paymentData.payment_method_id
     }).catch(() => { });
 
-    // 3. AUTOMAÇÃO: Encaminha ao fornecedor
+    // 3. RECÁLCULO DE LUCRO REAL (Performance Financeira)
+    // Buscamos o custo total dos produtos no pedido
+    const orderItems = await knex('order_items')
+        .join('products', 'order_items.product_id', 'products.id')
+        .where({ order_id: orderId })
+        .select('order_items.quantidade', 'products.preco_custo');
+
+    const totalCustoProdutos = orderItems.reduce((acc, item) => {
+        return acc + (Number(item.quantidade) * Number(item.preco_custo || 0));
+    }, 0);
+
+    const lucroReal = (netReceived - totalCustoProdutos).toFixed(2);
+
+    await knex('orders').where({ id: orderId }).update({
+        lucro_liquido: lucroReal,
+        updated_at: new Date()
+    });
+
+    // 4. AUTOMAÇÃO: Encaminha ao fornecedor
     const resultado = await supplierBridge.processarPedidoAprovado(orderId);
     console.log(`📦 [Webhook] Encaminhamento ao fornecedor:`, resultado);
 
-    console.log(`🎉 [Webhook] Pedido #${orderId} processado com sucesso!`);
+    console.log(`🎉 [Webhook] Pedido #${orderId} processado com lucro real de R$ ${lucroReal}`);
 }
 
 /**
