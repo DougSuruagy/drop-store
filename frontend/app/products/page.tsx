@@ -25,7 +25,8 @@ async function getProducts(searchParams: any) {
     }
 }
 
-export default async function ProductsPage({ searchParams }: { searchParams: any }) {
+export default async function ProductsPage(props: { searchParams: Promise<any> }) {
+    const searchParams = await props.searchParams;
     const products = await getProducts(searchParams);
 
     return (
