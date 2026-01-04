@@ -1,4 +1,3 @@
-// src/index.js
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -6,16 +5,14 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 // Middleware de Segurança
 const allowedOrigins = [
     'http://localhost:3000',
-    'https://drop-store-rho.vercel.app' // Link da sua loja na Vercel
+    'https://drop-store-rho.vercel.app'
 ];
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Permite requisições sem origin (como apps mobile ou curl)
         if (!origin) return callback(null, true);
         if (allowedOrigins.indexOf(origin) === -1) {
             const msg = 'A política CORS deste site não permite acesso do Origin especificado.';
@@ -32,16 +29,16 @@ const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const cartRoutes = require('./routes/cart');
 const checkoutRoutes = require('./routes/checkout');
-const webhookRoutes = require('./routes/webhooks');
 const orderRoutes = require('./routes/orders');
+const webhookRoutes = require('./routes/webhooks');
 
-// Mount routes – using a common /api prefix
+// Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/checkout', checkoutRoutes);
-app.use('/api/webhooks', webhookRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Simple health check
 app.get('/api/health', (req, res) => {
@@ -58,25 +55,45 @@ app.get('/api/db-debug', async (req, res) => {
         res.status(500).json({
             status: 'error',
             message: err.message,
-            code: err.code,
-            stack: err.stack ? 'present' : 'absent'
+            code: err.code
         });
     }
 });
 
-// Global error handler (fallback)
+// Global error handler
 app.use((err, req, res, next) => {
     console.error('Unexpected error:', err);
-    res.status(500).json({ error: 'Erro interno do servidor.' });
+    res.status(500).json({ error: 'Erro interno no servidor.' });
 });
 
-// Export app for Vercel
-module.exports = app;
+// Inicia o servidor e roda migrations programaticamente
+const startServer = async () => {
+    try {
+        console.log('📦 Iniciando banco de dados...');
+        const knex = require('./db');
 
-// Only listen if run directly (local dev)
-if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`🚀 Backend rodando na porta ${PORT}`);
-    });
-}
+        // Roda migrations
+        await knex.migrate.latest();
+        console.log('✅ Migrations concluídas.');
 
+        // Roda seeds (Sempre tenta garantir que existam produtos)
+        const productsCount = await knex('products').count('id as count').first();
+        if (parseInt(productsCount.count) === 0) {
+            console.log('🌱 Banco vazio. Rodando seeds...');
+            await knex.seed.run();
+            console.log('✅ Seeds concluídos.');
+        }
+
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 Backend rodando na porta ${PORT}`);
+        });
+    } catch (err) {
+        console.error('❌ Falha ao iniciar o servidor:', err);
+        // Em caso de erro grave no banco, sobe o servidor para diagnóstico
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 Modo de Emergência (Erro Banco) na porta ${PORT}`);
+        });
+    }
+};
+
+startServer();
