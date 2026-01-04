@@ -1,6 +1,11 @@
 // knexfile.js – configuração para Supabase (PostgreSQL)
 // Usa as variáveis de ambiente definidas em .env
 require('dotenv').config();
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 
 /**
  * @type { import('knex').Knex.Config } 
