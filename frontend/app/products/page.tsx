@@ -1,11 +1,12 @@
+import { Suspense } from 'react';
 import ProductsClient from './ProductsClient';
 
 export const dynamic = 'force-dynamic';
 
-
-// Esta página agora é um Server Component simples.
-// O arquivo loading.tsx ao lado cuida do Suspense Boundary necessário para o useSearchParams funcionar no ProductsClient.
-
 export default function ProductsPage() {
-    return <ProductsClient />;
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+            <ProductsClient />
+        </Suspense>
+    );
 }
