@@ -1,19 +1,8 @@
-import { Suspense } from 'react';
-import dynamicImport from 'next/dynamic';
-
-// Dynamic import with SSR disabled ensures this component is only rendered on the client side,
-// completely bypassing the build-time prerendering checks for useSearchParams.
-const ProductsClient = dynamicImport(() => import('./ProductsClient'), {
-    ssr: false,
-    loading: () => <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>
-});
-
-export const dynamic = 'force-dynamic';
-
 export default function ProductsPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
-            <ProductsClient />
-        </Suspense>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <h1 className="text-2xl font-bold text-gray-900">Catálogo de Produtos</h1>
+            <p className="ml-4 text-gray-600">Carregando sistema...</p>
+        </div>
     );
 }
