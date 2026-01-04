@@ -28,12 +28,13 @@ router.get('/', async (req, res) => {
         }
 
         if (q) {
-            const searchTerms = q.split(' ').filter(term => term.trim().length > 0).slice(0, 5);
+            // PERFORMANCE: Utiliza o GIN Index (Full Text Search) para buscas instantâneas
+            // Em vez de ILIKE (que é lento), usamos o motor de busca do PostgreSQL
             const searchFunc = function () {
-                searchTerms.forEach(term => {
-                    this.orWhere('titulo', 'ilike', `%${term}%`)
-                        .orWhere('descricao', 'ilike', `%${term}%`);
-                });
+                this.whereRaw(
+                    "to_tsvector('portuguese', titulo || ' ' || descricao) @@ plainto_tsquery('portuguese', ?)",
+                    [q]
+                );
             };
             query = query.where(searchFunc);
             countQuery = countQuery.where(searchFunc);

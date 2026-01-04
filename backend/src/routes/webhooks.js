@@ -162,27 +162,35 @@ async function processarReembolso(orderId, paymentData) {
     console.log(`💸 [Webhook] Processando reembolso do pedido #${orderId}`);
 
     // IDEMPOTÊNCIA ATÔMICA
-    const updated = await knex('orders')
-        .where({ id: orderId })
-        .whereNot({ status: 'refunded' }) // Só restaura se ainda não foi reembolsado
-        .update({
-            status: 'refunded',
-            updated_at: new Date()
+    try {
+        await knex.transaction(async (trx) => {
+            const updated = await trx('orders')
+                .where({ id: orderId })
+                .whereNot({ status: 'refunded' }) // Só restaura se ainda não foi reembolsado
+                .update({
+                    status: 'refunded',
+                    updated_at: new Date()
+                });
+
+            if (updated === 0) {
+                console.log(`[Webhook] Pedido #${orderId} já consta como reembolsado ou não existe.`);
+                return;
+            }
+
+            // Restaura estoque
+            const items = await trx('order_items').where({ order_id: orderId });
+            for (const item of items) {
+                await trx('products')
+                    .where({ id: item.product_id })
+                    .increment('estoque', item.quantidade);
+            }
+
+            console.log(`🔄 [Webhook] Estoque restaurado para pedido #${orderId}`);
         });
-
-    if (updated === 0) {
-        return console.log(`[Webhook] Pedido #${orderId} já consta como reembolsado ou não existe.`);
+    } catch (err) {
+        console.error(`❌ [Webhook] Erro na transação de reembolso para pedido #${orderId}:`, err);
+        throw err; // Re-throw para o catch principal
     }
-
-    // Restaura estoque
-    const items = await knex('order_items').where({ order_id: orderId });
-    for (const item of items) {
-        await knex('products')
-            .where({ id: item.product_id })
-            .increment('estoque', item.quantidade);
-    }
-
-    console.log(`🔄 [Webhook] Estoque restaurado para pedido #${orderId}`);
 }
 
 /**

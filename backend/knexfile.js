@@ -33,7 +33,7 @@ module.exports = {
     },
     pool: {
       min: 0,
-      max: 2, // Limite conservador para o plano free do Supabase (max 5 conexões)
+      max: 4, // Otimizado: 2x mais conexões simultâneas para suportar picos de tráfego
     },
     migrations: {
       tableName: 'knex_migrations'
