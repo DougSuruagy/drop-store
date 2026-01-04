@@ -87,10 +87,11 @@ async function retryFailedDispatches() {
     try {
         const threshold = new Date(Date.now() - 15 * 60 * 1000); // 15 minutos parado em 'paid'
 
+        // Busca pedidos 'paid' que não viraram 'processing' (indicando itens pendentes)
         const stagnantOrders = await knex('orders')
             .where({ status: 'paid' })
             .andWhere('updated_at', '<', threshold)
-            .limit(10); // Processa em lotes para não sobrecarregar
+            .limit(20);
 
         for (const order of stagnantOrders) {
             console.log(`🔄 [AutonomousManager] Tentando re-despacho automático para Pedido #${order.id}`);

@@ -35,15 +35,23 @@ const FORNECEDORES = {
  */
 async function processarPedidoAprovado(orderId) {
     try {
-        // 1. Busca dados completos do pedido (Snapshots garantem integridade)
+        // 1. Busca apenas itens que ainda não foram notificados aos seus respectivos fornecedores
         const order = await knex('orders').where({ id: orderId }).first();
         if (!order) throw new Error('Pedido não encontrado');
 
-        const items = await knex('order_items').where({ order_id: orderId });
+        const itemsPending = await knex('order_items')
+            .where({ order_id: orderId, notificado_fornecedor: false });
 
-        // 2. Agrupa itens por fornecedor (Usa o Snapshot para evitar erros logísticos)
+        if (itemsPending.length === 0) {
+            console.log(`ℹ️ [SupplierBridge] Pedido #${orderId} já teve todos os itens notificados.`);
+            // Garantia: Se todos os itens estão ok, o pedido deve estar em processing
+            await knex('orders').where({ id: orderId }).update({ status: 'processing' });
+            return { success: true, message: 'Já processado' };
+        }
+
+        // 2. Agrupa itens por fornecedor
         const itensPorFornecedor = {};
-        for (const item of items) {
+        for (const item of itemsPending) {
             const fornecedorId = item.fornecedor_id_snapshot || 1;
             if (!itensPorFornecedor[fornecedorId]) {
                 itensPorFornecedor[fornecedorId] = [];
@@ -51,7 +59,7 @@ async function processarPedidoAprovado(orderId) {
             itensPorFornecedor[fornecedorId].push(item);
         }
 
-        // 3. Envia para cada fornecedor (EM PARALELO - Perfomance Critical)
+        // 3. Envia para cada fornecedor (EM PARALELO)
         const entries = Object.entries(itensPorFornecedor);
         const dispatchPromises = entries.map(async ([fornecedorId, itensDoFornecedor]) => {
             const fornecedor = FORNECEDORES[fornecedorId] || FORNECEDORES[1];
@@ -73,6 +81,17 @@ async function processarPedidoAprovado(orderId) {
 
             const resultado = await enviarParaFornecedor(fornecedor, dadosPedido);
 
+            if (resultado.success) {
+                // Marcar itens específicos como notificados
+                const itemIds = itensDoFornecedor.map(i => i.id);
+                await knex('order_items')
+                    .whereIn('id', itemIds)
+                    .update({
+                        notificado_fornecedor: true,
+                        data_notificacao_fornecedor: new Date()
+                    });
+            }
+
             // Registra log detalhado no banco (Audit Trail)
             await knex('order_logs').insert({
                 order_id: orderId,
@@ -81,7 +100,7 @@ async function processarPedidoAprovado(orderId) {
                     fornecedor: fornecedor.nome,
                     metodo: fornecedor.tipo,
                     status: resultado.success ? 'SUCESSO' : 'FALHA',
-                    payload: dadosPedido
+                    itens: itensDoFornecedor.map(i => i.titulo_snapshot)
                 })
             }).catch(e => console.error('Log error:', e));
 
@@ -90,19 +109,22 @@ async function processarPedidoAprovado(orderId) {
 
         const resultados = await Promise.all(dispatchPromises);
 
-        // 4. Lógica de Atualização de Status Robusta
-        // Só avança para 'processing' se pelo menos um envio teve sucesso.
-        // Se todos falharam, mantém 'paid' para revisão manual.
+        // 4. Verificação Final: O pedido só vira 'processing' se TODOS os itens de TODOS os fornecedores foram OK
+        const totalPendingAfter = await knex('order_items')
+            .where({ order_id: orderId, notificado_fornecedor: false })
+            .count('id as count')
+            .first();
+
         const algumSucesso = resultados.some(r => r.success);
 
-        if (algumSucesso) {
+        if (parseInt(totalPendingAfter.count) === 0) {
             await knex('orders').where({ id: orderId }).update({
                 status: 'processing',
                 updated_at: new Date()
             });
-        } else {
-            console.error(`❌ [SupplierBridge] Falha crítica: Pedido #${orderId} não pôde ser enviado a nenhum fornecedor.`);
-            // Opcional: Notificar Admin via Telegram/Email aqui
+            console.log(`🎉 [SupplierBridge] Pedido #${orderId} TOTALMENTE processado.`);
+        } else if (algumSucesso) {
+            console.log(`⚠️ [SupplierBridge] Pedido #${orderId} PARCIALMENTE processado. Itens restantes: ${totalPendingAfter.count}`);
         }
 
         return { success: algumSucesso, resultados };

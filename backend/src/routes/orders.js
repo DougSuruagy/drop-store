@@ -123,17 +123,25 @@ router.get('/:id', async (req, res) => {
 router.post('/:id/cancel', async (req, res) => {
     const { id } = req.params;
     try {
-        const order = await knex('orders')
-            .where({ id, user_id: req.user.id })
-            .first();
-
-        if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
-        if (order.status !== 'pending' && order.status !== 'paid') {
-            return res.status(400).json({ error: 'Não é possível cancelar pedidos já enviados ou concluídos.' });
-        }
-
         await knex.transaction(async (trx) => {
-            // BUG LÓGICO FIX: Restaurar o estoque dos produtos cancelados
+            const order = await trx('orders')
+                .where({ id, user_id: req.user.id })
+                .forUpdate() // Trava para evitar concorrência
+                .first();
+
+            if (!order) throw new Error('NOT_FOUND');
+            if (order.status !== 'pending' && order.status !== 'paid') {
+                throw new Error('INVALID_STATUS');
+            }
+
+            // ATOMICIDADE: Só cancela se o status for o que validamos
+            const updated = await trx('orders')
+                .where({ id, status: order.status })
+                .update({ status: 'canceled', updated_at: new Date() });
+
+            if (updated === 0) throw new Error('CONCURRENCY_ERROR');
+
+            // Restaurar o estoque
             const items = await trx('order_items').where({ order_id: id });
 
             for (const item of items) {
@@ -142,15 +150,15 @@ router.post('/:id/cancel', async (req, res) => {
                     .increment('estoque', item.quantidade);
             }
 
-            await trx('orders').where({ id }).update({ status: 'canceled', updated_at: new Date() });
-
-            // Tenta falhar pagamento se houver registro de pagamento pendente
+            // Cancela pagamentos pendentes associados
             await trx('payments').where({ order_id: id }).update({ status: 'cancelled' }).catch(() => { });
         });
 
         res.json({ message: 'Pedido cancelado com sucesso.' });
     } catch (err) {
         console.error('Cancel order error:', err);
+        if (err.message === 'NOT_FOUND') return res.status(404).json({ error: 'Pedido não encontrado.' });
+        if (err.message === 'INVALID_STATUS') return res.status(400).json({ error: 'Não é possível cancelar pedidos já enviados ou concluídos.' });
         res.status(500).json({ error: 'Erro ao cancelar pedido.' });
     }
 });
