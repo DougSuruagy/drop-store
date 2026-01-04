@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "migrate": "knex migrate:latest",
-    "seed": "knex seed:run",
+    "migrate": "npx knex migrate:latest",
+    "seed": "npx knex seed:run",
     "build": "npm install && npm run migrate && npm run seed"
   },
   "keywords": [],
