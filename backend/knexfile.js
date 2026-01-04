@@ -1,12 +1,12 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Vacina contra o erro de IPv6 do Render
+// Força IPv4 (Essencial para o Render)
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Ignora erro de certificado SSL globalmente
+// Ignora erro de certificado SSL
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 module.exports = {
@@ -21,17 +21,17 @@ module.exports = {
     client: 'pg',
     connection: {
       connectionString: (process.env.DATABASE_URL || '').trim(),
-      ssl: { rejectUnauthorized: false },
+      ssl: { rejectUnauthorized: false }
     },
-    // Configurações específicas para evitar o erro de Tenant no Supavisor
     pool: {
       min: 0,
-      max: 2, // Manter o pool baixo no plano free
-      acquireTimeoutMillis: 60000,
-      idleTimeoutMillis: 30000
+      max: 2,
     },
     migrations: {
       tableName: 'knex_migrations'
+    },
+    seeds: {
+      directory: './seeds'
     }
   }
 };
