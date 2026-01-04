@@ -31,7 +31,22 @@ router.post('/register', async (req, res) => {
         }).returning(['id', 'email', 'nome']);
 
         const newUser = result[0];
-        res.status(201).json(newUser);
+
+        // AUTO-LOGIN: Gera o token imediatamente após o registro para melhor UX
+        const token = jwt.sign(
+            { id: newUser.id, email: newUser.email },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.status(201).json({
+            token,
+            user: {
+                id: newUser.id,
+                nome: newUser.nome,
+                email: newUser.email
+            }
+        });
     } catch (err) {
         // Race condition: O e-mail pode ter sido inserido entre o check inicial e o insert final
         if (err.code === '23505' || err.message.includes('unique constraint') || err.message.includes('UNIQUE constraint')) {

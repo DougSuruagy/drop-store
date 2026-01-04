@@ -155,8 +155,19 @@ router.post('/', async (req, res) => {
                     total: total.toFixed(2),
                     lucro_liquido: (total - totalCost - mpFee).toFixed(2),
                     status: 'pending',
+                    endereco_entrega: address,
+                    nome_cliente: guest_info?.nome || '', // Pega do guest ou seria bom ter do user
+                    email_cliente: userEmail
                 })
                 .returning('*');
+
+            // ATUALIZAÇÃO DE ENDEREÇO DO USUÁRIO (Praticidade UX)
+            // Se for um usuário logado e o endereço for diferente, atualizamos o perfil
+            if (userId && address) {
+                await trx('users')
+                    .where({ id: userId })
+                    .update({ endereco: address });
+            }
 
             await trx('order_items').insert(processedItems.map(i => ({
                 order_id: order.id,

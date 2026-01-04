@@ -26,13 +26,20 @@ export default function RegisterPage() {
         setError('');
 
         try {
-            await fetchAPI('/auth/register', {
+            const data = await fetchAPI('/auth/register', {
                 method: 'POST',
                 body: JSON.stringify(formData),
             });
 
-            // Redirecionar para login com msg de sucesso
-            router.push('/login');
+            // AUTO-LOGIN: Armazenar token e usuário vindos do registro
+            localStorage.setItem('token', data.token);
+            if (data.user) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+            }
+
+            // Redirecionar para Dashboard ou Home como logado
+            router.push('/');
+            router.refresh();
         } catch (err: unknown) {
             const error = err as Error;
             setError(error.message);

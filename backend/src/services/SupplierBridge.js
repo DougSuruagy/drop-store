@@ -64,9 +64,9 @@ async function processarPedidoAprovado(orderId) {
             const dadosPedido = {
                 pedido_id: orderId,
                 cliente: {
-                    nome: user?.nome || 'Cliente',
-                    email: user?.email,
-                    endereco: order.endereco || user?.endereco
+                    nome: order.nome_cliente || 'Cliente',
+                    email: order.email_cliente,
+                    endereco: order.endereco_entrega
                 },
                 itens: itensDoFornecedor.map(i => ({
                     produto: i.titulo,
