@@ -84,9 +84,10 @@ export default function CheckoutPage() {
 
         setLoading(true);
         try {
-            const body: CheckoutBody = {
+            const body: CheckoutBody & { total_visualizado: number } = {
                 address,
-                guest_info: { nome, email }
+                guest_info: { nome, email },
+                total_visualizado: total
             };
 
             const directBuyData = localStorage.getItem('direct_buy');

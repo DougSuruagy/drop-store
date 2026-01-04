@@ -29,7 +29,7 @@ router.post('/', async (req, res) => {
         } catch (e) { /* Token inválido */ }
     }
 
-    const { address, guest_info, cart_items } = req.body;
+    const { address, guest_info, cart_items, total_visualizado } = req.body;
 
     // Se não logado, exige guest_info (Auto-registro invisível)
     if (!userId) {
@@ -38,7 +38,17 @@ router.post('/', async (req, res) => {
         }
 
         try {
+            // SEGURANÇA: Verifica se o e-mail já pertence a um usuário registrado
+            // Se existir, impedimos o checkout de "convidado" para evitar sequestro de conta.
             let user = await knex('users').where({ email: guest_info.email }).first();
+
+            if (user && user.senha_hash !== 'GUEST_ACCOUNT') {
+                return res.status(401).json({
+                    error: 'Este e-mail já possui uma conta. Por favor, faça login para continuar.',
+                    require_login: true
+                });
+            }
+
             if (!user) {
                 const [newUser] = await knex('users').insert({
                     nome: guest_info.nome,
@@ -132,6 +142,12 @@ router.post('/', async (req, res) => {
                 });
             }
 
+            // SEGURANÇA LÓGICA: Validação do Preço Final
+            // Se o preço no banco mudou enquanto o usuário estava na página (ou houve tentativa de fraude), bloqueamos.
+            if (total_visualizado && Math.abs(Number(total_visualizado) - total) > 0.05) {
+                throw new Error('PRECO_ALTERADO');
+            }
+
             const mpFee = total * 0.05; // Taxa estimada MP
             const [order] = await trx('orders')
                 .insert({
@@ -202,10 +218,11 @@ router.post('/', async (req, res) => {
     } catch (err) {
         console.error('Checkout error:', err);
         if (err.message === 'CARRINHO_VAZIO') return res.status(400).json({ error: 'Seu carrinho está vazio.' });
+        if (err.message === 'PRECO_ALTERADO') return res.status(400).json({ error: 'O preço de alguns itens foi alterado. Por favor, atualize a página e tente novamente.' });
         if (err.message.startsWith('MARGEM_INSUFICIENTE')) return res.status(400).json({ error: 'IA detectou margem insuficiente para esta operação.' });
         if (err.message.startsWith('ESTOQUE_INSUFICIENTE')) return res.status(400).json({ error: 'Um ou mais itens esgotaram enquanto você comprava. Verifique o estoque.' });
 
-        res.status(500).json({ error: 'Erro ao processar checkout.' });
+        res.status(500).json({ error: err.require_login ? err.error : 'Erro ao processar checkout.' });
     }
 });
 
