@@ -13,12 +13,16 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'A política CORS deste site não permite acesso do Origin especificado.';
-            return callback(new Error(msg), false);
+
+        // Check if origin is in allowed list or is a Vercel deployment
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+            return callback(null, true);
         }
-        return callback(null, true);
+
+        const msg = 'A política CORS deste site não permite acesso do Origin especificado.';
+        return callback(new Error(msg), false);
     },
     credentials: true
 }));
