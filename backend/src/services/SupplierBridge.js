@@ -56,9 +56,9 @@ async function processarPedidoAprovado(orderId) {
             itensPorFornecedor[fornecedorId].push(item);
         }
 
-        // 3. Envia para cada fornecedor
-        const resultados = [];
-        for (const [fornecedorId, itens] of Object.entries(itensPorFornecedor)) {
+        // 3. Envia para cada fornecedor (EM PARALELO - Perfomance Critical)
+        const entries = Object.entries(itensPorFornecedor);
+        const dispatchPromises = entries.map(async ([fornecedorId, itensDoFornecedor]) => {
             const fornecedor = FORNECEDORES[fornecedorId] || FORNECEDORES[1];
 
             const dadosPedido = {
@@ -68,7 +68,7 @@ async function processarPedidoAprovado(orderId) {
                     email: user?.email,
                     endereco: order.endereco || user?.endereco
                 },
-                itens: itens.map(i => ({
+                itens: itensDoFornecedor.map(i => ({
                     produto: i.titulo,
                     quantidade: i.quantidade,
                     observacao: ''
@@ -77,7 +77,6 @@ async function processarPedidoAprovado(orderId) {
             };
 
             const resultado = await enviarParaFornecedor(fornecedor, dadosPedido);
-            resultados.push(resultado);
 
             // Registra log no banco
             await knex('order_logs').insert({
@@ -88,16 +87,29 @@ async function processarPedidoAprovado(orderId) {
                     metodo: fornecedor.tipo,
                     status: resultado.success ? 'SUCESSO' : 'FALHA'
                 })
-            }).catch(() => { }); // Ignora se tabela não existir
-        }
+            }).catch(() => { });
 
-        // 4. Atualiza status do pedido
-        await knex('orders').where({ id: orderId }).update({
-            status: 'processing',
-            updated_at: new Date()
+            return resultado;
         });
 
-        return { success: true, resultados };
+        const resultados = await Promise.all(dispatchPromises);
+
+        // 4. Lógica de Atualização de Status Robusta
+        // Só avança para 'processing' se pelo menos um envio teve sucesso.
+        // Se todos falharam, mantém 'paid' para revisão manual.
+        const algumSucesso = resultados.some(r => r.success);
+
+        if (algumSucesso) {
+            await knex('orders').where({ id: orderId }).update({
+                status: 'processing',
+                updated_at: new Date()
+            });
+        } else {
+            console.error(`❌ [SupplierBridge] Falha crítica: Pedido #${orderId} não pôde ser enviado a nenhum fornecedor.`);
+            // Opcional: Notificar Admin via Telegram/Email aqui
+        }
+
+        return { success: algumSucesso, resultados };
 
     } catch (error) {
         console.error('Erro ao processar pedido:', error);
