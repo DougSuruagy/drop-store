@@ -8,6 +8,7 @@ interface PriceBoxProps {
         titulo: string;
         preco: number;
         imagens: string[];
+        estoque: number;
     };
 }
 

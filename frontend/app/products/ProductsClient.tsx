@@ -38,24 +38,25 @@ export default function ProductsClient() {
                 throw new Error(`Erro API: ${res.status}`);
             }
             const data = await res.json();
-            console.log('Products received:', data.length);
 
-            if (data.length < PRODUCTS_PER_PAGE) {
-                setHasMore(false);
-            }
+            // PERFORMANCE: Destruturação do novo corpo de resposta (obejto com pagination)
+            const newProducts = data.products || [];
+            const pagination = data.pagination || { page: 1, pages: 1 };
+
+            console.log('Products received:', newProducts.length, 'Total pages:', pagination.pages);
 
             if (append) {
-                setProducts(prev => [...prev, ...data]);
+                setProducts(prev => [...prev, ...newProducts]);
             } else {
-                setProducts(data);
-                setHasMore(data.length === PRODUCTS_PER_PAGE);
+                setProducts(newProducts);
             }
 
-            return data;
+            // Lógica mais robusta para o "Carregar Mais"
+            setHasMore(pagination.page < pagination.pages);
+
+            return newProducts;
         } catch (error) {
             console.error('Failed to fetch products:', error);
-            // Em vez de retornar [], vamos setar um estado de erro se quisermos mostrar na UI,
-            // mas por enquanto, return [] mantém o comportamento compátivel, mas loga o erro.
             return [];
         }
     }, [searchParams]);
