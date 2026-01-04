@@ -12,7 +12,10 @@ if (dns.setDefaultResultOrder) {
 module.exports = {
   development: {
     client: 'pg',
-    connection: process.env.DATABASE_URL,
+    connection: {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    },
     pool: { min: 0, max: 10 },
     migrations: { tableName: 'knex_migrations' }
   },
@@ -21,7 +24,6 @@ module.exports = {
     client: 'pg',
     connection: {
       connectionString: process.env.DATABASE_URL,
-      // O driver 'pg' usa estas configurações para estabilizar no Render
       ssl: { rejectUnauthorized: false },
       family: 4
     },
