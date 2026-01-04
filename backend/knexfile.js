@@ -1,19 +1,13 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// Força IPv4 (Essencial para o Render)
+// Força IPv4 para o Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Ignora erro de certificado SSL globalmente
+// Ignora erro de certificado SSL
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
-// Log seguro para conferir o host no Render
-if (process.env.DATABASE_URL) {
-  const maskedUrl = process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':****@');
-  console.log('[Knex] Usando URL:', maskedUrl.split('@')[1] || 'URL malformada');
-}
 
 module.exports = {
   development: {
@@ -26,12 +20,15 @@ module.exports = {
   production: {
     client: 'pg',
     connection: {
-      connectionString: process.env.DATABASE_URL,
+      // O segredo para o erro "Tenant not found" no Render é limpar a URL e garantir o SSL
+      connectionString: (process.env.DATABASE_URL || '').trim(),
       ssl: { rejectUnauthorized: false }
     },
     pool: {
       min: 0,
-      max: 2,
+      max: 4,
+      acquireTimeoutMillis: 60000,
+      idleTimeoutMillis: 30000
     },
     migrations: {
       tableName: 'knex_migrations'
