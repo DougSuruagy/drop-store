@@ -4,11 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node node_modules/knex/bin/cli.js migrate:latest && node node_modules/knex/bin/cli.js seed:run && node src/index.js",
     "dev": "nodemon src/index.js",
     "migrate": "node node_modules/knex/bin/cli.js migrate:latest",
     "seed": "node node_modules/knex/bin/cli.js seed:run",
-    "build": "npm install && npm run migrate && npm run seed"
+    "build": "npm install"
   },
   "keywords": [],
   "author": "",

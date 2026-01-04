@@ -9,6 +9,12 @@ if (dns.setDefaultResultOrder) {
 // Ignora erro de certificado SSL globalmente
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
+// Log seguro para conferir o host no Render
+if (process.env.DATABASE_URL) {
+  const maskedUrl = process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':****@');
+  console.log('[Knex] Usando URL:', maskedUrl.split('@')[1] || 'URL malformada');
+}
+
 module.exports = {
   development: {
     client: 'pg',
@@ -23,15 +29,15 @@ module.exports = {
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false }
     },
-    // Limita o pool para não estourar as conexões do plano grátis
     pool: {
       min: 0,
       max: 2,
     },
-    // Desativa cache de statements que o Pooler do Supabase rejeita
     migrations: {
-      tableName: 'knex_migrations',
-      disableTransactions: false // Mantém transações para segurança
+      tableName: 'knex_migrations'
+    },
+    seeds: {
+      directory: './seeds'
     }
   }
 };
