@@ -1,24 +1,18 @@
 require('dotenv').config();
 const dns = require('dns');
 
-// FORÇA O NODE A ACEITAR CERTIFICADOS SELF-SIGNED (COMUM NO RENDER/SUPABASE)
+// Força aceitar certificados do Supabase
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-// Resolve o problema de IPv6 do Render
+// Resolve IPv6 do Render
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-/**
- * @type { import('knex').Knex.Config }
- */
 module.exports = {
   development: {
     client: 'pg',
-    connection: {
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-    },
+    connection: process.env.DATABASE_URL,
     pool: { min: 0, max: 10 },
     migrations: { tableName: 'knex_migrations' }
   },
@@ -27,14 +21,14 @@ module.exports = {
     client: 'pg',
     connection: {
       connectionString: process.env.DATABASE_URL,
+      // Configurações críticas para o Pooler do Supabase
       ssl: { rejectUnauthorized: false },
-      family: 4
+      application_name: 'drop-store'
     },
     pool: {
       min: 0,
       max: 10,
-      acquireTimeoutMillis: 30000,
-      idleTimeoutMillis: 30000
+      acquireTimeoutMillis: 60000,
     },
     migrations: {
       tableName: 'knex_migrations'
