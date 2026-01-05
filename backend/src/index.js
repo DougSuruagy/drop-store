@@ -116,6 +116,10 @@ const startServer = async () => {
             autonomousManager.activeCartRecovery();
             autonomousManager.retryFailedDispatches();
 
+            // WORKER INTEGRADO (Custo Zero / Single Instance)
+            const { initPaymentWorker } = require('../jobs/paymentProcessor');
+            initPaymentWorker();
+
             setInterval(() => {
                 autonomousManager.activeInventoryManagement();
                 autonomousManager.activeCartRecovery();

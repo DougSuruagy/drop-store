@@ -27,33 +27,7 @@ services:
       - key: NEXT_PUBLIC_API_URL
         value: https://drop-backend.onrender.com/api
 
-  - type: worker
-    name: drop-payment-worker
-    env: node
-    plan: free
-    region: oregon
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && node jobs/paymentProcessor.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: drop-redis
-          property: connectionString
-      - key: MP_ACCESS_TOKEN
-        sync: false
-      - key: MP_ZERO_COST
-        value: "true"
-      - key: JWT_SECRET
-        generateValue: true
-      - key: FRONTEND_URL
-        value: https://drop-store.vercel.app
-      - key: NEXT_PUBLIC_API_URL
-        value: https://drop-backend.onrender.com/api
+
 
   - type: redis
     name: drop-redis
