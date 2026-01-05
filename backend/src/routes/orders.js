@@ -130,7 +130,7 @@ router.post('/:id/cancel', async (req, res) => {
                 .first();
 
             if (!order) throw new Error('NOT_FOUND');
-            if (order.status !== 'pending' && order.status !== 'paid') {
+            if (!['pending', 'paid', 'awaiting_payment'].includes(order.status)) {
                 throw new Error('INVALID_STATUS');
             }
 
