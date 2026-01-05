@@ -11,7 +11,10 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
-        fromService: drop-redis
+        fromService:
+          type: redis
+          name: drop-redis
+          property: connectionString
       - key: MP_ACCESS_TOKEN
         sync: false
       - key: MP_ZERO_COST
@@ -36,7 +39,10 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
-        fromService: drop-redis
+        fromService:
+          type: redis
+          name: drop-redis
+          property: connectionString
       - key: MP_ACCESS_TOKEN
         sync: false
       - key: MP_ZERO_COST
