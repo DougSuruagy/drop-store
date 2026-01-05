@@ -1,10 +1,11 @@
 services:
   - type: web
     name: drop-backend
-    env: docker
+    env: node
     plan: free
     region: oregon
-    dockerfilePath: ./Dockerfile
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -28,11 +29,11 @@ services:
 
   - type: worker
     name: drop-payment-worker
-    env: docker
+    env: node
     plan: free
     region: oregon
-    dockerfilePath: ./Dockerfile
-    startCommand: "node jobs/paymentProcessor.js"
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node jobs/paymentProcessor.js
     envVars:
       - key: NODE_ENV
         value: production
