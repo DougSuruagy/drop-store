@@ -23,7 +23,7 @@ services:
       - key: NEXT_PUBLIC_API_URL
         value: https://drop-backend.onrender.com/api
 
-  - type: background
+  - type: worker
     name: drop-payment-worker
     env: docker
     plan: free
