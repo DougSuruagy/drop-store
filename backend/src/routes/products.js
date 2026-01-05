@@ -4,7 +4,6 @@ const router = express.Router();
 const knex = require('../db');
 
 // PERFORMANCE: Cache em memória para os produtos mais vistos
-// Evita consultas repetitivas ao banco de dados em picos de tráfego.
 const productCache = new Map();
 const CACHE_TTL = 60 * 1000; // 1 minuto
 
@@ -33,8 +32,6 @@ router.get('/', async (req, res) => {
         }
 
         if (q) {
-            // PERFORMANCE: Utiliza o GIN Index (Full Text Search) para buscas instantâneas
-            // Em vez de ILIKE (que é lento), usamos o motor de busca do PostgreSQL
             const searchFunc = function () {
                 this.whereRaw(
                     "to_tsvector('portuguese', titulo || ' ' || descricao) @@ plainto_tsquery('portuguese', ?)",
@@ -45,7 +42,6 @@ router.get('/', async (req, res) => {
             countQuery = countQuery.where(searchFunc);
         }
 
-        // PERFORMANCE & SECURITY: Selecionar apenas campos públicos necessários
         const products = await query.select(
             'id', 'titulo', 'preco', 'imagens', 'categoria', 'estoque'
         )
@@ -53,10 +49,11 @@ router.get('/', async (req, res) => {
             .limit(limitNum)
             .offset(offset);
 
-        // UX: Retornar o total para que o frontend saiba quando parar de carregar
         const totalResult = await countQuery.count('id as total').first();
         const total = parseInt(totalResult.total, 10);
 
+        // PERFORMANCE: Cache no cliente/CDN por 60 segundos
+        res.set('Cache-Control', 'public, max-age=60');
         res.json({
             products,
             pagination: {
@@ -80,14 +77,12 @@ router.get('/:id', async (req, res) => {
         return res.status(400).json({ error: 'ID de produto inválido.' });
     }
 
-    // Tenta carregar do cache
     const cached = productCache.get(id);
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
         return res.json(cached.data);
     }
 
     try {
-        // SEGURANÇA: Não selecionamos 'preco_custo' ou 'fornecedor_id' para o cliente
         const product = await knex('products')
             .select(
                 'id',
@@ -105,16 +100,14 @@ router.get('/:id', async (req, res) => {
 
         if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });
 
-        // CROSS-SELL: Busca produtos relacionados (Mesma categoria, exclui o atual)
         const related = await knex('products')
-            .where({ categoria: product.categoria })
+            .where({ categoria: product.categoria, visivel: true })
             .whereNot({ id: product.id })
             .select('id', 'titulo', 'preco', 'imagens')
             .limit(4);
 
         const responseData = { ...product, related };
 
-        // Salva no cache
         productCache.set(id, {
             data: responseData,
             timestamp: Date.now()
@@ -127,4 +120,7 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-module.exports = router;
+module.exports = {
+    router,
+    productCache
+};

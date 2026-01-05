@@ -89,8 +89,10 @@ async function processarPagamentoAprovado(orderId, paymentData) {
     console.log(`✅ [Webhook] Processando aprovação do pedido #${orderId}`);
 
     // IDEMPOTÊNCIA ATÔMICA: Garante que apenas UM processo execute o fluxo por vez
+    // CORREÇÃO CRÍTICA: Aceita tanto 'pending' quanto 'awaiting_payment' (definido pelo worker)
     const updated = await knex('orders')
-        .where({ id: orderId, status: 'pending' }) // Só avança se estiver pendente
+        .where({ id: orderId })
+        .whereIn('status', ['pending', 'awaiting_payment']) // Fix: Allow awaiting_payment
         .update({
             status: 'paid',
             payment_id: paymentData.id?.toString(),

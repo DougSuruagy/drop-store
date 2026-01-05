@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: drop-backend
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService: drop-redis
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: MP_ZERO_COST
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://drop-store.vercel.app
+      - key: NEXT_PUBLIC_API_URL
+        value: https://drop-backend.onrender.com/api
+
+  - type: background
+    name: drop-payment-worker
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    startCommand: "node jobs/paymentProcessor.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService: drop-redis
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: MP_ZERO_COST
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://drop-store.vercel.app
+      - key: NEXT_PUBLIC_API_URL
+        value: https://drop-backend.onrender.com/api
+
+  - type: redis
+    name: drop-redis
+    region: oregon
+    plan: free
+    ipAllowList: []

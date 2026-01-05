@@ -3,6 +3,8 @@ const router = express.Router();
 const knex = require('../db');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 const LeanAI = require('../services/LeanAI');
+// Enfileira jobs de pagamento (BullMQ)
+const { enqueuePaymentJob } = require('../../jobs/paymentProcessor');
 
 // AURUM TECH - Configuração Mercado Pago (100% sem custo fixo)
 const client = new MercadoPagoConfig({
@@ -18,8 +20,34 @@ const checkoutLimiter = rateLimiter(3, 10 * 60 * 1000);
  * POST /checkout
  * SUPORTA GUEST CHECKOUT (Regra 4 - Sem Cadastro Obrigatório)
  */
+/**
+ * GET /checkout/status/:orderId
+ * Polling para verificar status do pagamento (suporta Guest)
+ */
+router.get('/status/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const order = await knex('orders')
+            .select('id', 'status', 'payment_url')
+            .where({ id: orderId })
+            .first();
+
+        if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+        res.json({
+            id: order.id,
+            status: order.status,
+            payment_url: order.payment_url
+        });
+    } catch (err) {
+        console.error('Order status poll error:', err);
+        res.status(500).json({ error: 'Erro ao buscar status' });
+    }
+});
+
 router.post('/', checkoutLimiter, async (req, res) => {
     // 1. Identifica usuário (Token ou Guest)
+
     let userId = null;
     let userEmail = null;
 
@@ -105,9 +133,12 @@ router.post('/', checkoutLimiter, async (req, res) => {
             }, []);
 
             // PERFORMANCE & CONCURRENCY: Bloqueia apenas os IDs necessários
+            // Bloqueia apenas os IDs necessários. 
+            // PERFORMANCE: Usa SKIP LOCKED para evitar dead-locks em alta concorrência.
             const products = await trx('products')
                 .whereIn('id', consolidatedItems.map(i => i.product_id))
-                .forUpdate();
+                .forUpdate()
+                .skipLocked();
 
             let total = 0;
             let totalCost = 0;
@@ -132,9 +163,7 @@ router.post('/', checkoutLimiter, async (req, res) => {
                 }
 
                 // ATUALIZA ESTOQUE NO BANCO
-                await trx('products')
-                    .where({ id: prod.id })
-                    .decrement('estoque', item.quantidade);
+                // Decremento de estoque será feito em lote após o loop para melhorar performance
 
                 total += subtotal;
                 totalCost += subtotalCost;
@@ -150,11 +179,15 @@ router.post('/', checkoutLimiter, async (req, res) => {
             }
 
             // SEGURANÇA LÓGICA: Validação do Preço Final
-            if (total_visualizado && Math.abs(Number(total_visualizado) - total) > 0.05) {
-                throw new Error('PRECO_ALTERADO');
+            // Aceita undefined, null, ou string vazia.
+            if (typeof total_visualizado !== 'undefined' && total_visualizado !== null && total_visualizado !== '') {
+                const parsed = Number(total_visualizado);
+                if (!Number.isNaN(parsed) && Math.abs(parsed - total) > 0.05) {
+                    throw new Error('PRECO_ALTERADO');
+                }
             }
 
-            const mpFee = total * 0.05; // Taxa estimada MP
+            const mpFee = (process.env.MP_ZERO_COST === 'true') ? 0 : total * 0.05; // Taxa estimada MP (custo zero opcional)
             const [order] = await trx('orders')
                 .insert({
                     user_id: userId,
@@ -175,16 +208,18 @@ router.post('/', checkoutLimiter, async (req, res) => {
                     .update({ endereco: address });
             }
 
-            await trx('order_items').insert(processedItems.map(i => ({
+            // Inserção em lote de order_items usando batchInsert para performance
+            const orderItemsBatch = processedItems.map(i => ({
                 order_id: order.id,
                 product_id: i.product_id,
                 quantidade: i.quantidade,
                 preco_unitario: i.preco,
-                titulo_snapshot: i.titulo, // SEGURANÇA LÓGICA: Snapshot para não mudar com o catálogo
+                titulo_snapshot: i.titulo,
                 preco_snapshot: i.preco,
-                custo_snapshot: i.custo, // NOVO: Integridade financeira total
+                custo_snapshot: i.custo,
                 fornecedor_id_snapshot: i.fornecedor_id
-            })));
+            }));
+            await trx.batchInsert('order_items', orderItemsBatch);
 
             // CORREÇÃO: Só deleta o carrinho se a origem da compra foi o carrinho
             if (fromCart) {
@@ -196,63 +231,45 @@ router.post('/', checkoutLimiter, async (req, res) => {
                 }
             }
 
+            // Decremento de estoque em lote (performance)
+            const decrementQueries = consolidatedItems.map(item => {
+                return trx('products')
+                    .where({ id: item.product_id })
+                    .decrement('estoque', item.quantidade);
+            });
+            await Promise.all(decrementQueries);
+
+            // Enfileira job assíncrono - Tratamento de erro robusto
+            try {
+                await enqueuePaymentJob({
+                    orderId: order.id,
+                    items: processedItems,
+                    orderTotal: total,
+                    mpZeroCost: process.env.MP_ZERO_COST === 'true'
+                });
+            } catch (jobErr) {
+                // Não interrompe a transação, apenas registra para auditoria
+                // O job não foi enfileirado, o admin deverá processar manualmente ou o cliente tentará novamente
+                await trx('orders')
+                    .where({ id: order.id })
+                    .update({
+                        metadata: JSON.stringify({
+                            paymentJobError: jobErr.message
+                        })
+                    });
+                console.error('⚠️ Falha ao enfileirar job de pagamento:', jobErr);
+            }
+
             return { order, processedItems };
         });
 
-        // CHAMADA EXTERNA (Mercado Pago)
-        // LÓGICA DE COMPENSAÇÃO (Critical Reliability):
-        // Se a API do MP falhar, precisamos devolver o estoque e marcar como falha.
-        let mpResponse;
-        try {
-            const preference = new Preference(client);
-            const mpItems = orderData.processedItems.map(i => ({
-                title: i.titulo,
-                unit_price: Number(i.preco),
-                quantity: i.quantidade,
-                currency_id: 'BRL'
-            }));
-
-            mpResponse = await preference.create({
-                body: {
-                    items: mpItems,
-                    back_urls: {
-                        success: `${process.env.FRONTEND_URL}/checkout/success?order_id=${orderData.order.id}`,
-                        failure: `${process.env.FRONTEND_URL}/checkout/error`,
-                        pending: `${process.env.FRONTEND_URL}/checkout/pending`,
-                    },
-                    auto_return: 'approved',
-                    external_reference: orderData.order.id.toString(),
-                    date_of_expiration: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                    binary_mode: true,
-                    statement_descriptor: "DROPSTORE",
-                    payment_methods: {
-                        excluded_payment_types: [{ id: "ticket" }],
-                        installments: 12
-                    }
-                }
-            });
-        } catch (mpError) {
-            console.error(`❌ [Checkout] Falha na API Mercado Pago para Pedido #${orderData.order.id}:`, mpError);
-
-            // Reverte o estoque imediatamente para não travar o produto
-            await knex.transaction(async (trx) => {
-                for (const item of orderData.processedItems) {
-                    await trx('products')
-                        .where({ id: item.product_id })
-                        .increment('estoque', item.quantidade);
-                }
-                await trx('orders')
-                    .where({ id: orderData.order.id })
-                    .update({ status: 'failed_checkout', updated_at: new Date() });
-            });
-
-            throw new Error('MERCADO_PAGO_UNAVAILABLE');
-        }
-
+        // A resposta ao cliente é imediata; o job de pagamento atualizará o pedido depois
+        // O frontend deve fazer polling no /checkout/status/:orderId
         res.status(201).json({
             order_id: orderData.order.id,
             total: orderData.order.total,
-            payment_url: mpResponse.init_point
+            payment_url: null,
+            status: 'processing_payment'
         });
 
     } catch (err) {

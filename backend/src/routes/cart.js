@@ -40,6 +40,9 @@ router.post('/', async (req, res) => {
     }
 
     try {
+        const product = await knex('products').select('id', 'estoque', 'titulo').where({ id: product_id }).first();
+        if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });
+
         // Usa transação para garantir integridade
         await knex.transaction(async (trx) => {
             let cart = await trx('carts').where({ user_id: req.user.id }).forUpdate().first();
@@ -51,6 +54,7 @@ router.post('/', async (req, res) => {
 
             const existing = await trx('cart_items')
                 .where({ cart_id: cart.id, product_id })
+                .forUpdate()
                 .first();
 
             if (existing) {

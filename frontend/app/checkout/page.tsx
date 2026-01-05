@@ -106,6 +106,10 @@ export default function CheckoutPage() {
             if (res.payment_url) {
                 if (directBuyData) localStorage.removeItem('direct_buy');
                 window.location.href = res.payment_url;
+            } else if (res.order_id) {
+                // Async payment processing (BullMQ)
+                if (directBuyData) localStorage.removeItem('direct_buy');
+                router.push(`/checkout/success?order_id=${res.order_id}`);
             }
         } catch (err: unknown) {
             const error = err as Error;
