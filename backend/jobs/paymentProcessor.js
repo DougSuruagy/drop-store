@@ -5,14 +5,25 @@ const knex = require('../src/db');
 
 // Configura a fila usando a URL do Redis (Render injeta REDIS_URL)
 // Tenta usar ioredis format se REDIS_URL for string completa
+// Configura a fila usando a URL do Redis (Render injeta REDIS_URL)
+const IORedis = require('ioredis');
+
 let connection;
 if (process.env.REDIS_URL) {
-    connection = require('ioredis').createClient(process.env.REDIS_URL, {
+    // Render External/Internal Redis URL (rediss://...)
+    connection = new IORedis(process.env.REDIS_URL, {
         maxRetriesPerRequest: null,
-        enableReadyCheck: false
+        enableReadyCheck: false,
+        // Garante suporte a TLS se a URL for rediss://
+        tls: process.env.REDIS_URL.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined
     });
 } else {
-    connection = { host: '127.0.0.1', port: 6379 };
+    // Fallback local
+    connection = new IORedis({
+        host: '127.0.0.1',
+        port: 6379,
+        maxRetriesPerRequest: null
+    });
 }
 
 const paymentQueue = new Queue('payment', { connection });
