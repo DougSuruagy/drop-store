@@ -23,29 +23,38 @@ async function activeInventoryManagement() {
             }
 
             // Lógica 2: Recuperação de Margem Ativa (Inflação/Prejuízo)
-            const taxaMP = Number(product.preco) * REGRAS.TAXA_MP;
+            const mpZeroCost = process.env.MP_ZERO_COST === 'true';
+
+            // Se MP_ZERO_COST estiver ativo, recalculamos sem a taxa do MP
+            // Se estiver falso, mantemos a taxa de 5%
+            const taxaMP = mpZeroCost ? 0 : Number(product.preco) * REGRAS.TAXA_MP;
+
             const lucro = Number(product.preco) - Number(product.preco_custo) - taxaMP;
             const margem = lucro / Number(product.preco);
 
-            if (margem < REGRAS.MARGEM_MINIMA) {
+            // Ajuste dinâmico de margem mínima
+            const margemMinima = mpZeroCost ? 0.10 : REGRAS.MARGEM_MINIMA;
+
+            if (margem < margemMinima) {
                 // EVOLUÇÃO ATIVA: IA corrige o preço automaticamente para restaurar a margem mínima
-                // Preço Sugerido = Custo / (1 - MargemAlvo - TaxaMP)
-                const divisor = 1 - REGRAS.MARGEM_MINIMA - REGRAS.TAXA_MP;
+                const divisor = 1 - margemMinima - (mpZeroCost ? 0 : REGRAS.TAXA_MP);
                 const novoPreco = Number(product.preco_custo) / divisor;
 
                 // Arredonda para cima no centavo .90 (Psicologia de Preço)
                 const precoFormatado = (Math.ceil(novoPreco / 1) * 1 - 0.10).toFixed(2);
 
-                console.warn(`⚖️ [AutonomousManager] Ajuste de Preço Automático para "${product.titulo}": R$ ${product.preco} -> R$ ${precoFormatado} (Restaurando margem de ${REGRAS.MARGEM_MINIMA * 100}%)`);
+                if (Math.abs(Number(precoFormatado) - Number(product.preco)) > 0.50) {
+                    console.warn(`⚖️ [AutonomousManager] Ajuste de Preço Automático para "${product.titulo}": R$ ${product.preco} -> R$ ${precoFormatado} (Restaurando margem de ${margemMinima * 100}%)`);
 
-                await knex('products').where({ id: product.id }).update({
-                    preco: precoFormatado,
-                    visivel: true, // Garante visibilidade
-                    updated_at: new Date()
-                });
+                    await knex('products').where({ id: product.id }).update({
+                        preco: precoFormatado,
+                        visivel: true,
+                        updated_at: new Date()
+                    });
 
-                // PERFORMANCE: Limpa o cache para que os clientes vejam o preço atualizado imediatamente
-                productCache.delete(product.id.toString());
+                    // PERFORMANCE: Limpa o cache
+                    productCache.delete(product.id.toString());
+                }
             }
         }
     } catch (err) {

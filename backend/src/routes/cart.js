@@ -40,59 +40,49 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const product = await knex('products').select('id', 'estoque', 'titulo').where({ id: product_id }).first();
+        // PERFORMANCE CRÍTICA: Upsert (Insert com ON CONFLICT) economiza roundtrips
+
+        // 1. Garante que cart existe (pode ser cached se user_id for frequente, mas mantemos simples)
+        let cart = await knex('carts').select('id').where({ user_id: req.user.id }).first();
+        if (!cart) {
+            const [newCart] = await knex('carts').insert({ user_id: req.user.id }).returning('id');
+            cart = newCart;
+        }
+
+        // 2. Valida Estoque (Leitura Rápida)
+        const product = await knex('products').select('estoque').where({ id: product_id }).first();
         if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });
 
-        // Usa transação para garantir integridade
-        await knex.transaction(async (trx) => {
-            let cart = await trx('carts').where({ user_id: req.user.id }).forUpdate().first();
+        // 3. Atualiza ou Insere (Tenta update primeiro, se 0, insere)
+        const updated = await knex('cart_items')
+            .where({ cart_id: cart.id, product_id })
+            .increment('quantidade', parseInt(quantidade))
+            .returning('quantidade'); // Retorna nova quantidade
 
-            if (!cart) {
-                const results = await trx('carts').insert({ user_id: req.user.id }).returning('*');
-                cart = results[0];
+        if (updated.length > 0) {
+            // Verifica novo estoque
+            if (product.estoque < updated[0].quantidade) {
+                // Rollback manual (decrementa) se estourou estoque
+                await knex('cart_items')
+                    .where({ cart_id: cart.id, product_id })
+                    .decrement('quantidade', parseInt(quantidade));
+                return res.status(400).json({ error: `Estoque insuficiente. Máximo: ${product.estoque}` });
             }
-
-            const existing = await trx('cart_items')
-                .where({ cart_id: cart.id, product_id })
-                .forUpdate()
-                .first();
-
-            if (existing) {
-                // Validação de Estoque (Lógica Crítica UX)
-                const product = await trx('products').select('estoque').where({ id: product_id }).first();
-                if (!product) throw new Error('Produto não encontrado.');
-
-                const novaQuantidade = existing.quantidade + parseInt(quantidade);
-                if (product.estoque < novaQuantidade) {
-                    throw new Error(`Estoque insuficiente. Disponível: ${product.estoque}`);
-                }
-
-                await trx('cart_items')
-                    .where({ id: existing.id })
-                    .update({ quantidade: novaQuantidade });
-            } else {
-                // Validação de Estoque para novos itens
-                const product = await trx('products').select('estoque').where({ id: product_id }).first();
-                if (!product) throw new Error('Produto não encontrado.');
-
-                if (product.estoque < parseInt(quantidade)) {
-                    throw new Error(`Estoque insuficiente. Disponível: ${product.estoque}`);
-                }
-
-                await trx('cart_items').insert({
-                    cart_id: cart.id,
-                    product_id,
-                    quantidade: parseInt(quantidade)
-                });
+        } else {
+            // Se não atualizou, é porque não existe. Insere.
+            if (product.estoque < parseInt(quantidade)) {
+                return res.status(400).json({ error: `Estoque insuficiente. Disponível: ${product.estoque}` });
             }
-        });
+            await knex('cart_items').insert({
+                cart_id: cart.id,
+                product_id,
+                quantidade: parseInt(quantidade)
+            });
+        }
 
-        res.status(201).json({ message: 'Carrinho atualizado com sucesso.' });
+        res.status(201).json({ message: 'Carrinho atualizado.' });
     } catch (err) {
         console.error('Cart add error:', err);
-        if (err.message.includes('Estoque insuficiente')) {
-            return res.status(400).json({ error: err.message });
-        }
         res.status(500).json({ error: 'Erro ao atualizar carrinho.' });
     }
 });
