@@ -161,14 +161,31 @@ function calcularPrecoMinimo(custo) {
  * @returns {Object} { allowed: boolean, message: string }
  */
 function validarVenda(precoVenda, custoProduto) {
-    const taxaMP = precoVenda * REGRAS.TAXA_MP;
+    // Se o custo for 0 (produto digital ou não cadastrado), liberamos a venda
+    // Isso é útil para testes ou produtos de "isca"
+    if (!custoProduto || custoProduto <= 0) {
+        return {
+            allowed: true,
+            message: 'Venda aprovada (Custo Zero/Desconhecido)',
+            lucro: precoVenda.toFixed(2),
+            margem: '100%'
+        };
+    }
+
+    const mpZeroCost = process.env.MP_ZERO_COST === 'true';
+    const taxaMP = mpZeroCost ? 0 : precoVenda * REGRAS.TAXA_MP;
+
     const lucro = precoVenda - custoProduto - taxaMP;
     const margem = lucro / precoVenda;
 
-    if (margem < REGRAS.MARGEM_MINIMA) {
+    // Se estivermos em modo Zero Cost (Crescimento Agressivo), podemos relaxar a margem mínima para 10%
+    // ou manter a regra original se não for especificado.
+    const margemMinimaEfetiva = mpZeroCost ? 0.10 : REGRAS.MARGEM_MINIMA;
+
+    if (margem < margemMinimaEfetiva) {
         return {
             allowed: false,
-            message: `Venda bloqueada: margem de ${(margem * 100).toFixed(1)}% é inferior ao mínimo de ${REGRAS.MARGEM_MINIMA * 100}%`,
+            message: `Venda bloqueada: margem de ${(margem * 100).toFixed(1)}% é inferior ao mínimo de ${margemMinimaEfetiva * 100}%`,
             lucro: lucro.toFixed(2),
             margem: (margem * 100).toFixed(1) + '%'
         };
