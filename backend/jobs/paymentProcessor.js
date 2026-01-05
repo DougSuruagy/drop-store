@@ -1,13 +1,21 @@
 // backend/jobs/paymentProcessor.js
-const { Queue, Worker, QueueScheduler } = require('bullmq');
+const { Queue, Worker } = require('bullmq');
 const { Preference } = require('mercadopago');
 const knex = require('../src/db');
 
 // Configura a fila usando a URL do Redis (Render injeta REDIS_URL)
-const connection = process.env.REDIS_URL ? { url: process.env.REDIS_URL } : { host: '127.0.0.1', port: 6379 };
+// Tenta usar ioredis format se REDIS_URL for string completa
+let connection;
+if (process.env.REDIS_URL) {
+    connection = require('ioredis').createClient(process.env.REDIS_URL, {
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false
+    });
+} else {
+    connection = { host: '127.0.0.1', port: 6379 };
+}
 
 const paymentQueue = new Queue('payment', { connection });
-new QueueScheduler('payment', { connection });
 
 // Cliente Mercado Pago (token via env)
 const mpClient = new (require('mercadopago')).MercadoPagoConfig({
