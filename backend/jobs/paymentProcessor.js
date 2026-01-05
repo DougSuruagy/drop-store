@@ -8,6 +8,12 @@ const knex = require('../src/db');
 // Configura a fila usando a URL do Redis (Render injeta REDIS_URL)
 const IORedis = require('ioredis');
 
+// --- DEBUG LOGGING ---
+console.log('🔧 [PaymentProcessor] Environment Check:');
+console.log('   REDIS_URL Exists?', !!process.env.REDIS_URL);
+if (process.env.REDIS_URL) console.log('   REDIS_URL Protocol:', process.env.REDIS_URL.split('://')[0]);
+// ---------------------
+
 let connection;
 if (process.env.REDIS_URL) {
     // Render External/Internal Redis URL (rediss://...)
